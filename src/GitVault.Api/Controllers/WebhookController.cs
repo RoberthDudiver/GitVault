@@ -115,9 +115,22 @@ public class WebhookController(
             }
         }
 
-        // When action = "deleted": mark all vaults of this installation as unavailable
+        // When action = "deleted" or "suspend": clear the installation from the user and mark vaults unavailable
         if (action is "deleted" or "suspend")
         {
+            // Clear GitHubInstallationId from the user so github_connected returns false
+            var user = await db.Users.FirstOrDefaultAsync(
+                u => u.GitHubInstallationId == installationId, ct);
+
+            if (user is not null)
+            {
+                user.GitHubInstallationId = null;
+                user.UpdatedAt = DateTime.UtcNow;
+                logger.LogInformation(
+                    "Cleared GitHubInstallationId for user {UserId} after installation {Action}",
+                    user.UserId, action);
+            }
+
             var vaults = await db.Vaults
                 .Where(v => v.InstallationId == installationId)
                 .ToListAsync(ct);
