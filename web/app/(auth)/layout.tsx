@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-context";
 import { Nav } from "@/components/nav";
+import { Footer } from "@/components/footer";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, githubConnected } = useAuth();
@@ -34,6 +35,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="flex flex-col min-h-screen">
       <Nav />
       <main className="flex-1">{children}</main>
+      <Footer />
     </div>
   );
 }

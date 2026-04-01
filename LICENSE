@@ -1,0 +1,101 @@
+GitVault — Custom Non-Commercial Open Source License
+Copyright (c) 2025-2026 Roberth Dudiver (https://dudiver.net)
+
+TERMS AND CONDITIONS / TÉRMINOS Y CONDICIONES
+══════════════════════════════════════════════
+
+ENGLISH
+───────
+
+1. GRANT OF USE
+   Permission is granted, free of charge, to any person obtaining a copy of
+   this software to use, copy, study, and modify it for personal,
+   non-commercial purposes only, subject to the following conditions.
+
+2. ATTRIBUTION (REQUIRED)
+   All copies, forks, or derivative works must clearly attribute the original
+   author:
+       Created by Roberth Dudiver — https://dudiver.net
+   This notice must be retained in all copies and substantial portions of the
+   software.
+
+3. CONTRIBUTIONS
+   Functional changes, improvements, or bug fixes to this project must be
+   submitted as a Pull Request to the original repository:
+       https://github.com/RoberthDudiver/GitVault
+   You may run modified versions privately, but distributing modified versions
+   without submitting a PR is discouraged and subject to this license.
+
+4. NON-COMMERCIAL USE ONLY
+   This software may NOT be used for commercial purposes without explicit
+   prior written authorization from the original author.
+   "Commercial purposes" includes but is not limited to:
+   — Selling the software or any derivative work
+   — Licensing or sublicensing it for profit
+   — Using it as part of a paid product or service
+   — Offering it as SaaS without authorization
+
+5. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL
+   THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+   FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+6. NO LIABILITY FOR MISUSE
+   The author is not responsible for how users or third parties use this
+   software. Any illegal, harmful, or unauthorized use is solely the
+   responsibility of the person performing such use.
+
+──────────────────────────────────────────────
+
+ESPAÑOL
+───────
+
+1. CONCESIÓN DE USO
+   Se otorga permiso, de forma gratuita, a cualquier persona que obtenga una
+   copia de este software para usarlo, copiarlo, estudiarlo y modificarlo
+   exclusivamente con fines personales y no comerciales, sujeto a las
+   siguientes condiciones.
+
+2. ATRIBUCIÓN (OBLIGATORIA)
+   Todas las copias, forks u obras derivadas deben incluir claramente la
+   atribución al autor original:
+       Creado por Roberth Dudiver — https://dudiver.net
+   Este aviso debe conservarse en todas las copias y partes sustanciales del
+   software.
+
+3. CONTRIBUCIONES
+   Los cambios funcionales, mejoras o correcciones de errores deben enviarse
+   como Pull Request al repositorio original:
+       https://github.com/RoberthDudiver/GitVault
+   Puedes ejecutar versiones modificadas de forma privada, pero distribuir
+   versiones modificadas sin enviar un PR no está alentado y está sujeto a
+   esta licencia.
+
+4. SOLO USO NO COMERCIAL
+   Este software NO puede usarse con fines comerciales sin autorización previa
+   y por escrito del autor original.
+   "Fines comerciales" incluye pero no se limita a:
+   — Vender el software o cualquier obra derivada
+   — Licenciarlo o sublicenciarlo con fines de lucro
+   — Usarlo como parte de un producto o servicio de pago
+   — Ofrecerlo como SaaS sin autorización
+
+5. SIN GARANTÍA
+   EL SOFTWARE SE PROPORCIONA "TAL CUAL", SIN GARANTÍA DE NINGÚN TIPO,
+   EXPRESA O IMPLÍCITA, INCLUYENDO PERO NO LIMITADO A GARANTÍAS DE
+   COMERCIABILIDAD, IDONEIDAD PARA UN PROPÓSITO PARTICULAR Y NO INFRACCIÓN.
+   EN NINGÚN CASO EL AUTOR SERÁ RESPONSABLE DE NINGUNA RECLAMACIÓN, DAÑO U
+   OTRA RESPONSABILIDAD QUE SURJA DEL USO DEL SOFTWARE.
+
+6. SIN RESPONSABILIDAD POR MAL USO
+   El autor no es responsable de cómo los usuarios o terceros utilizan este
+   software. Cualquier uso ilegal, dañino o no autorizado es responsabilidad
+   exclusiva de quien lo realice.
+
+──────────────────────────────────────────────
+For commercial licensing inquiries / Para consultas de licencia comercial:
+https://dudiver.net
