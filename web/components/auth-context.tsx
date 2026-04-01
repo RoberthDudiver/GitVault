@@ -18,6 +18,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -56,8 +57,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   };
 
+  const refreshUser = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    try {
+      // Force-refresh token so interceptor picks up latest claims
+      await currentUser.getIdToken(true);
+      const { data } = await api.get("/auth/me");
+      setGithubConnected(!!data.github_connected);
+    } catch {
+      // ignore — stale state is fine, page will re-check
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, githubConnected, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, githubConnected, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

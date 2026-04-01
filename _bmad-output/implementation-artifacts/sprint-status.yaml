@@ -1,4 +1,5 @@
 generated: 2026-04-01
+last_updated: 2026-04-01
 project: GitVault
 tracking_system: file-system
 story_location: _bmad-output/implementation-artifacts/stories
@@ -33,8 +34,8 @@ development_status:
   epic-4-retrospective: optional
 
   # Epic 5: Infrastructure And Production
-  epic-5: in-progress
+  epic-5: done
   5-1-docker-y-redis-cache-opcional: done
-  5-2-contrato-api-frontend-backend: in-progress
-  5-3-produccion-y-cors: backlog
+  5-2-contrato-api-frontend-backend: done
+  5-3-produccion-y-cors: done
   epic-5-retrospective: optional
