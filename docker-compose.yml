@@ -2,13 +2,28 @@ version: "3.9"
 
 # ─── GitVault — Local Development ─────────────────────────────────────────────
 # Usage:
-#   1. Copy .env.example to .env and fill in required values
+#   1. Copy .env.example to .env y rellenar valores
 #   2. docker compose up --build
-#   3. API: http://localhost:5000
-#      Scalar API docs: http://localhost:5000/scalar/v1
+#   3. API:      http://localhost:5000
+#      API docs: http://localhost:5000/scalar/v1
 #      Frontend: http://localhost:3000
+#      Redis:    localhost:6379
 
 services:
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   api:
     build:
       context: .
@@ -16,9 +31,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Persist SQLite database between restarts
       - sqlite_data:/app/data
-      # Mount secrets (override paths in .env)
       - ./.secrets:/run/secrets:ro
     environment:
       ASPNETCORE_ENVIRONMENT: Development
@@ -30,6 +43,12 @@ services:
       GITHUB_APP_NAME: ${GITHUB_APP_NAME}
       GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/github-app-private-key.pem
       FIREBASE_CREDENTIAL_PATH: /run/secrets/firebase-adminsdk.json
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+      Redis__ConnectionString: redis:6379
+      Redis__InstanceName: gitvault:
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/healthz"]
       interval: 30s
@@ -59,3 +78,4 @@ services:
 
 volumes:
   sqlite_data:
+  redis_data:
