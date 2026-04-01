@@ -37,6 +37,9 @@ export default function RegisterPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
+        <div className="flex justify-center mb-5">
+          <img src="/logo.png" alt="GitVault" className="h-10 w-auto dark:invert-0 invert" />
+        </div>
         <h1 className="text-2xl font-semibold tracking-tight">Create an account</h1>
         <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Already have an account?{" "}
