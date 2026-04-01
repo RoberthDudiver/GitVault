@@ -1,6 +1,8 @@
 using GitVault.Core.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 
 namespace GitVault.Api.Controllers;
 
@@ -47,6 +49,70 @@ public class ServingController(IServingService serving) : ControllerBase
         }
 
         return StatusCode(500, new { error = "INTERNAL_ERROR" });
+    }
+
+    /// <summary>
+    /// Returns a JPEG thumbnail (max 400×400) of the file.
+    /// Only works for image files; returns 415 for non-images.
+    /// Result is heavily cached (immutable content).
+    /// </summary>
+    [HttpGet("{publicId}/thumb")]
+    public async Task<IActionResult> GetThumbnail(string publicId, CancellationToken ct)
+    {
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        var result = await serving.ResolveAsync(publicId, authHeader, ct);
+
+        if (!result.Found) return NotFound();
+        if (!result.Authorized) return Unauthorized();
+
+        // For public files in public repos the serving result is a redirect URL.
+        // We need the actual bytes, so stream them regardless of visibility.
+        Stream? contentStream = result.ContentStream;
+
+        if (contentStream is null && result.RedirectUrl is not null)
+        {
+            // Fetch from the CDN redirect URL so we can resize it
+            using var http = new System.Net.Http.HttpClient();
+            try
+            {
+                var bytes = await http.GetByteArrayAsync(result.RedirectUrl, ct);
+                contentStream = new MemoryStream(bytes);
+            }
+            catch
+            {
+                return StatusCode(502, new { error = "UPSTREAM_ERROR" });
+            }
+        }
+
+        if (contentStream is null)
+            return StatusCode(500, new { error = "INTERNAL_ERROR" });
+
+        // Only image types support thumbnail generation
+        var contentType = result.ContentType ?? "";
+        if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            return StatusCode(415, new { error = "NOT_AN_IMAGE" });
+
+        try
+        {
+            using var image = await Image.LoadAsync(contentStream, ct);
+            image.Mutate(x => x.Resize(new ResizeOptions
+            {
+                Size = new Size(400, 400),
+                Mode = ResizeMode.Max   // maintain aspect ratio, never upscale beyond original
+            }));
+
+            var ms = new MemoryStream();
+            await image.SaveAsJpegAsync(ms, ct);
+            ms.Position = 0;
+
+            // Thumbnails are derived from immutable CAS blobs — cache aggressively
+            Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+            return File(ms, "image/jpeg");
+        }
+        catch
+        {
+            return StatusCode(422, new { error = "CANNOT_PROCESS_IMAGE" });
+        }
     }
 
     [HttpGet("{publicId}/meta")]

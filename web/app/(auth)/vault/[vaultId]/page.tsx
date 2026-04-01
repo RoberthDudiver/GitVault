@@ -12,7 +12,7 @@ import {
 } from "@/hooks/useFiles";
 import { useVault } from "@/hooks/useVaults";
 import { auth } from "@/lib/firebase";
-import { servingUrl } from "@/lib/api";
+import { servingUrl, thumbUrl } from "@/lib/api";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -356,50 +356,99 @@ function PreviewModal({
 
 function GalleryCard({
   file,
-  onClick,
+  onPreview,
+  onCopyUrl,
+  onToggleVisibility,
+  onDelete,
+  copiedId,
 }: {
   file: FileMetadata;
-  onClick: () => void;
+  onPreview: () => void;
+  onCopyUrl: () => void;
+  onToggleVisibility: () => void;
+  onDelete: () => void;
+  copiedId: string | null;
 }) {
-  const showThumb = isImage(file.contentType) && file.visibility === "public";
-  const thumbUrl = showThumb ? getPublicUrl(file.publicId, file.originalName) : null;
+  // Use thumbnail endpoint for images (public or private — thumb auth handled server-side)
+  const thumb = isImage(file.contentType) ? thumbUrl(file.publicId) : null;
 
   return (
-    <button
-      onClick={onClick}
-      className="group relative aspect-square rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-zinc-400"
-    >
-      {thumbUrl ? (
-        <img
-          src={thumbUrl}
-          alt={file.originalName}
-          className="h-full w-full object-cover transition-transform group-hover:scale-105"
-          loading="lazy"
-        />
-      ) : (
-        <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-600">
-          <TypeIcon contentType={file.contentType} size={36} />
-          <span className="text-xs font-medium">{fileTypeLabel(file.contentType)}</span>
-        </div>
-      )}
+    <div className="group relative aspect-square rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all hover:shadow-lg">
 
-      {/* Hover overlay */}
-      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end">
-        <div className="w-full p-2 translate-y-full group-hover:translate-y-0 transition-transform">
-          <p className="text-white text-xs font-medium truncate">{file.originalName}</p>
-          <p className="text-white/70 text-xs">{formatBytes(file.sizeBytes)}</p>
+      {/* Clickable image / icon area */}
+      <button
+        onClick={onPreview}
+        className="absolute inset-0 w-full h-full focus:outline-none"
+        aria-label={`Preview ${file.originalName}`}
+      >
+        {thumb ? (
+          <img
+            src={thumb}
+            alt={file.originalName}
+            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            loading="lazy"
+            onError={(e) => {
+              // If thumb fails (non-image or error), hide img and show icon
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+        ) : (
+          <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-600">
+            <TypeIcon contentType={file.contentType} size={36} />
+            <span className="text-xs font-medium">{fileTypeLabel(file.contentType)}</span>
+          </div>
+        )}
+      </button>
+
+      {/* Hover overlay with filename + action buttons */}
+      <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-200 bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-6 pb-2 px-2">
+        {/* Filename */}
+        <p className="text-white text-xs font-medium truncate mb-1.5">{file.originalName}</p>
+
+        {/* Action row */}
+        <div className="flex items-center gap-1">
+          {/* Visibility toggle */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
+            title={file.visibility === "public" ? "Make private" : "Make public"}
+            className={`flex-1 text-center text-xs py-1 rounded-md transition-colors ${
+              file.visibility === "public"
+                ? "bg-green-500/30 hover:bg-green-500/50 text-green-300"
+                : "bg-zinc-500/30 hover:bg-zinc-500/50 text-zinc-300"
+            }`}
+          >
+            {file.visibility === "public" ? "Public" : "Private"}
+          </button>
+
+          {/* Copy URL */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopyUrl(); }}
+            title="Copy URL"
+            className="flex-1 text-center text-xs py-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors"
+          >
+            {copiedId === file.logicalId ? "✓" : "Copy"}
+          </button>
+
+          {/* Delete */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            title="Delete"
+            className="flex-1 text-center text-xs py-1 rounded-md bg-red-500/30 hover:bg-red-500/50 text-red-300 transition-colors"
+          >
+            Delete
+          </button>
         </div>
       </div>
 
-      {/* Private badge */}
-      {file.visibility === "private" && (
-        <div className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1">
-          <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-        </div>
-      )}
-    </button>
+      {/* Visibility badge (top-right, always visible) */}
+      <div className={`absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium ${
+        file.visibility === "private"
+          ? "bg-black/60 text-white"
+          : "bg-green-500/80 text-white"
+      }`}>
+        {file.visibility === "private" ? "🔒" : "🌐"}
+      </div>
+    </div>
   );
 }
 
@@ -592,8 +641,38 @@ export default function VaultExplorerPage() {
       {!isLoading && !error && files.length > 0 && viewMode === "gallery" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {files.map((file) => (
-            <GalleryCard key={file.logicalId} file={file} onClick={() => setPreviewFile(file)} />
+            <GalleryCard
+              key={file.logicalId}
+              file={file}
+              copiedId={copiedId}
+              onPreview={() => setPreviewFile(file)}
+              onCopyUrl={() => handleCopy(file)}
+              onToggleVisibility={() => handleToggleVisibility(file)}
+              onDelete={() => setConfirmDeleteId(file.logicalId)}
+            />
           ))}
+        </div>
+      )}
+
+      {/* Inline delete confirmation for gallery view */}
+      {confirmDeleteId && viewMode === "gallery" && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-xl bg-zinc-900 dark:bg-zinc-800 border border-zinc-700 px-5 py-3 shadow-2xl">
+          <span className="text-sm text-white">Delete this file?</span>
+          <button
+            onClick={() => handleConfirmDelete(confirmDeleteId)}
+            disabled={!!deletingId}
+            className="rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 transition-colors"
+          >
+            {deletingId && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+            {deletingId ? "Deleting…" : "Yes, delete"}
+          </button>
+          <button
+            onClick={() => setConfirmDeleteId(null)}
+            disabled={!!deletingId}
+            className="rounded-lg border border-zinc-600 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+          >
+            Cancel
+          </button>
         </div>
       )}
 

@@ -24,3 +24,6 @@ export const servingUrl = (publicId: string, filename?: string) =>
   filename
     ? `${API_URL}/f/${publicId}/${encodeURIComponent(filename)}`
     : `${API_URL}/f/${publicId}`;
+
+// Thumbnail URL — server resizes to max 400×400 JPEG, heavily cached
+export const thumbUrl = (publicId: string) => `${API_URL}/f/${publicId}/thumb`;
