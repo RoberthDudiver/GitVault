@@ -14,10 +14,10 @@ using Scalar.AspNetCore;
 using Serilog;
 using System.Threading.RateLimiting;
 
-// ── Bootstrap Serilog early ───────────────────────────────────────────────────
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .CreateBootstrapLogger();
+// ── Pre-host console logger (no Serilog bootstrap to avoid double-Freeze) ────
+// In .NET 10 the DI ValidateOnBuild path calls service factories twice, which
+// causes Serilog's ReloadableLogger.Freeze() to throw InvalidOperationException.
+// Solution: configure Serilog only via UseSerilog — no static CreateBootstrapLogger.
 
 try
 {
@@ -32,9 +32,6 @@ try
     }
 
     // ── Serilog ───────────────────────────────────────────────────────────────
-    // Note: avoid ReadFrom.Services() — it causes a double Freeze() on the
-    // ReloadableLogger when the host builds its service provider, crashing on
-    // production Docker restarts.
     builder.Host.UseSerilog((ctx, config) => config
         .ReadFrom.Configuration(ctx.Configuration)
         .Enrich.FromLogContext()
@@ -149,15 +146,13 @@ try
     app.UseSerilogRequestLogging(opts =>
         opts.MessageTemplate = "HTTP {RequestMethod} {RequestPath} → {StatusCode} ({Elapsed:0.0}ms)");
 
-    if (app.Environment.IsDevelopment())
+    // Swagger/Scalar available in all environments (as requested)
+    app.MapOpenApi();
+    app.MapScalarApiReference(opts =>
     {
-        app.MapOpenApi();
-        app.MapScalarApiReference(opts =>
-        {
-            opts.Title = "GitVault API";
-            opts.Theme = ScalarTheme.Mars;
-        });
-    }
+        opts.Title = "GitVault API";
+        opts.Theme = ScalarTheme.Mars;
+    });
 
     app.UseCors("Frontend");
     app.UseRateLimiter();
