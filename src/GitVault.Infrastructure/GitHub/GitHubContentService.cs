@@ -86,8 +86,10 @@ public class GitHubContentService(
             RepositoryContentChangeSet result;
             if (existingFileSha is null)
             {
+                // convertContentToBase64: false — we already base64-encoded the bytes ourselves.
+                // Passing true would cause Octokit to base64-encode our base64 string → double-encoding.
                 result = await client.Repository.Content
-                    .CreateFile(owner, repo, path, new CreateFileRequest(commitMessage, base64, true))
+                    .CreateFile(owner, repo, path, new CreateFileRequest(commitMessage, base64, false))
                     .WaitAsync(ct);
             }
             else

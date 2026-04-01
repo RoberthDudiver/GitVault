@@ -157,7 +157,26 @@ public class StorageService(
         if (file is null)
             return Result.Fail<Stream>(ErrorCodes.NotFound, "Blob not found in repository.");
 
-        var bytes = Convert.FromBase64String(file.Content.Replace("\n", ""));
+        var cleanContent = file.Content.Replace("\r", "").Replace("\n", "");
+        var bytes = Convert.FromBase64String(cleanContent);
+
+        // Legacy double-encoding fix: old uploads accidentally stored base64 text instead of
+        // raw bytes (Octokit CreateFileRequest was called with convertContentToBase64=true on
+        // already-encoded data). Detect by checking all decoded bytes are printable ASCII.
+        if (bytes.Length > 8 && bytes.All(b => b >= 0x09 && b <= 0x7E))
+        {
+            try
+            {
+                var secondPass = System.Text.Encoding.ASCII.GetString(bytes)
+                    .Replace("\r", "").Replace("\n", "");
+                var reDecoded = Convert.FromBase64String(secondPass);
+                // Only use if result looks like real binary (has non-ASCII bytes)
+                if (reDecoded.Any(b => b > 0x7E || b < 0x09))
+                    bytes = reDecoded;
+            }
+            catch { /* not double-encoded, use first decode */ }
+        }
+
         return Result.Ok<Stream>(new MemoryStream(bytes));
     }
 
