@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GitVault.Api/GitVault.Api.csproj" />
+    <Project Path="src/GitVault.Core/GitVault.Core.csproj" />
+    <Project Path="src/GitVault.Infrastructure/GitVault.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/GitVault.Tests/GitVault.Tests.csproj" />
+  </Folder>
+</Solution>

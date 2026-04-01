@@ -1,0 +1,61 @@
+version: "3.9"
+
+# ─── GitVault — Local Development ─────────────────────────────────────────────
+# Usage:
+#   1. Copy .env.example to .env and fill in required values
+#   2. docker compose up --build
+#   3. API: http://localhost:5000
+#      Scalar API docs: http://localhost:5000/scalar/v1
+#      Frontend: http://localhost:3000
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist SQLite database between restarts
+      - sqlite_data:/app/data
+      # Mount secrets (override paths in .env)
+      - ./.secrets:/run/secrets:ro
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:5000
+      SQLITE_PATH: /app/data/gitvault.db
+      FRONTEND_URL: http://localhost:3000
+      SERVER_SECRET: ${SERVER_SECRET}
+      GITHUB_APP_ID: ${GITHUB_APP_ID}
+      GITHUB_APP_NAME: ${GITHUB_APP_NAME}
+      GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/github-app-private-key.pem
+      FIREBASE_CREDENTIAL_PATH: /run/secrets/firebase-adminsdk.json
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:5000
+        NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY}
+        NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}
+        NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID}
+        NEXT_PUBLIC_GITHUB_APP_NAME: ${GITHUB_APP_NAME}
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:
