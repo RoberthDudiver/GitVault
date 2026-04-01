@@ -359,9 +359,34 @@ public class MetadataService(
         try
         {
             var clean = githubBase64Content.Replace("\r", "").Replace("\n", "");
+            logger.LogDebug("DecryptGitHub: raw content length={Len}, first60={Preview}",
+                clean.Length, clean[..Math.Min(60, clean.Length)]);
+
             var bytes = Convert.FromBase64String(clean);
             var encryptedBase64 = Encoding.UTF8.GetString(bytes);
-            return crypto.Decrypt(encryptedBase64);
+            logger.LogDebug("DecryptGitHub: decoded bytes={ByteLen}, encB64 length={EncLen}, first60={Preview}",
+                bytes.Length, encryptedBase64.Length, encryptedBase64[..Math.Min(60, encryptedBase64.Length)]);
+
+            var result = crypto.Decrypt(encryptedBase64);
+            if (result is null)
+                logger.LogWarning("DecryptGitHub: crypto.Decrypt returned null (key mismatch or corrupted data)");
+            return result;
+        }
+        catch (FormatException ex)
+        {
+            // Content is not valid base64 — likely already decoded by Octokit
+            logger.LogWarning(ex, "DecryptGitHub: content is not valid base64 (length={Len}). Trying direct decrypt...",
+                githubBase64Content.Length);
+            try
+            {
+                // Try treating content as already-decoded UTF-8 (the encrypted base64 string itself)
+                return crypto.Decrypt(githubBase64Content);
+            }
+            catch (Exception ex2)
+            {
+                logger.LogWarning(ex2, "DecryptGitHub: direct decrypt also failed");
+                return null;
+            }
         }
         catch (Exception ex)
         {
