@@ -12,6 +12,7 @@ export function Nav() {
   const links = [
     { href: "/vault", label: "Vaults" },
     { href: "/apps", label: "Apps" },
+    { href: "/settings", label: "Ajustes" },
   ];
 
   return (

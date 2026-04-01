@@ -55,6 +55,16 @@ public class GitHubClientFactory(
     }
 
     /// <summary>
+    /// Returns a client authenticated with the user's Personal Access Token.
+    /// Used as fallback when installation token lacks permissions (e.g. creating user repos).
+    /// </summary>
+    public GitHubClient GetPersonalTokenClient(string personalAccessToken) =>
+        new(new ProductHeaderValue(ProductName, ProductVersion))
+        {
+            Credentials = new Credentials(personalAccessToken)
+        };
+
+    /// <summary>
     /// Returns a client authenticated as the GitHub App itself (not an installation).
     /// Used for listing installations, etc.
     /// </summary>

@@ -17,6 +17,7 @@ namespace GitVault.Infrastructure.Crypto;
 public class CryptoService : ICryptoService
 {
     private readonly byte[] _serverSecretBytes;
+    private readonly byte[] _aesKey;
     private const string Base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     public CryptoService(IConfiguration configuration)
@@ -28,6 +29,10 @@ public class CryptoService : ICryptoService
                 "Generate with: openssl rand -hex 32");
 
         _serverSecretBytes = Encoding.UTF8.GetBytes(secret);
+
+        // Derive a 256-bit AES key from SERVER_SECRET using HKDF-SHA256
+        _aesKey = HKDF.DeriveKey(HashAlgorithmName.SHA256, _serverSecretBytes, 32,
+            info: "GitVault-AES-PAT-v1"u8.ToArray());
     }
 
     // ── SHA-256 ───────────────────────────────────────────────────────────────
@@ -128,6 +133,52 @@ public class CryptoService : ICryptoService
                 return null;
 
             return userId;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    // ── AES-256-GCM Encrypt / Decrypt ─────────────────────────────────────────
+
+    public string Encrypt(string plaintext)
+    {
+        var nonce = RandomNumberGenerator.GetBytes(AesGcm.NonceByteSizes.MaxSize); // 12 bytes
+        var tag = new byte[AesGcm.TagByteSizes.MaxSize];                            // 16 bytes
+        var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
+        var ciphertext = new byte[plaintextBytes.Length];
+
+        using var aes = new AesGcm(_aesKey, AesGcm.TagByteSizes.MaxSize);
+        aes.Encrypt(nonce, plaintextBytes, ciphertext, tag);
+
+        // Layout: nonce(12) + tag(16) + ciphertext(n)
+        var combined = new byte[nonce.Length + tag.Length + ciphertext.Length];
+        nonce.CopyTo(combined, 0);
+        tag.CopyTo(combined, nonce.Length);
+        ciphertext.CopyTo(combined, nonce.Length + tag.Length);
+
+        return Convert.ToBase64String(combined);
+    }
+
+    public string? Decrypt(string encrypted)
+    {
+        try
+        {
+            var combined = Convert.FromBase64String(encrypted);
+            const int nonceSize = 12;
+            const int tagSize = 16;
+            if (combined.Length < nonceSize + tagSize) return null;
+
+            var nonce = combined[..nonceSize];
+            var tag = combined[nonceSize..(nonceSize + tagSize)];
+            var ciphertext = combined[(nonceSize + tagSize)..];
+            var plaintext = new byte[ciphertext.Length];
+
+            using var aes = new AesGcm(_aesKey, AesGcm.TagByteSizes.MaxSize);
+            aes.Decrypt(nonce, ciphertext, tag, plaintext);
+
+            return Encoding.UTF8.GetString(plaintext);
         }
         catch
         {

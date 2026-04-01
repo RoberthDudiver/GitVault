@@ -41,4 +41,10 @@ public interface ICryptoService
 
     /// <summary>Validates a state token and returns the embedded userId, or null if invalid.</summary>
     string? ValidateStateToken(string token);
+
+    /// <summary>Encrypts plaintext using AES-256-GCM. Returns base64-encoded IV+tag+ciphertext.</summary>
+    string Encrypt(string plaintext);
+
+    /// <summary>Decrypts a value produced by Encrypt. Returns null if decryption fails.</summary>
+    string? Decrypt(string ciphertext);
 }

@@ -192,6 +192,31 @@ public class GitHubContentService(
         }
     }
 
+    public async Task<Result<(long RepoId, string DefaultBranch, string FullName)>> CreateRepositoryWithTokenAsync(
+        string personalAccessToken,
+        string name,
+        bool isPrivate,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var client = clientFactory.GetPersonalTokenClient(personalAccessToken);
+            var created = await client.Repository.Create(new NewRepository(name)
+            {
+                Private = isPrivate,
+                AutoInit = true,
+                Description = "GitVault storage repository"
+            }).WaitAsync(ct);
+
+            return Result.Ok((created.Id, created.DefaultBranch ?? "main", created.FullName));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error creating repository {Name} with PAT", name);
+            return Result.Fail<(long, string, string)>(ErrorCodes.GitHubError, ex.Message);
+        }
+    }
+
     public string GetRawUrl(string repoFullName, string branch, string path)
     {
         // raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}

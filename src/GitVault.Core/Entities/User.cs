@@ -12,6 +12,8 @@ public class User
     public string? GitHubLogin { get; set; }
     public string Plan { get; set; } = "free";
     public bool IsBlocked { get; set; } = false;
+    /// <summary>AES-256-GCM encrypted GitHub Personal Access Token for repo creation fallback.</summary>
+    public string? GitHubPersonalTokenEncrypted { get; set; }
     /// <summary>
     /// GitHub App installation ID for this user.
     /// Set when the user installs the GitHub App (callback or webhook).

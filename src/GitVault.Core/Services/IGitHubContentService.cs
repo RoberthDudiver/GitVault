@@ -60,6 +60,13 @@ public interface IGitHubContentService
         bool isPrivate,
         CancellationToken ct = default);
 
+    /// <summary>Creates a new repository using a Personal Access Token (fallback when installation token lacks permissions).</summary>
+    Task<Result<(long RepoId, string DefaultBranch, string FullName)>> CreateRepositoryWithTokenAsync(
+        string personalAccessToken,
+        string name,
+        bool isPrivate,
+        CancellationToken ct = default);
+
     /// <summary>Gets the raw download URL for a file (raw.githubusercontent.com).</summary>
     string GetRawUrl(string repoFullName, string branch, string path);
 }

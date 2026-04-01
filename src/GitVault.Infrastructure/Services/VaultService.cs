@@ -16,6 +16,7 @@ public class VaultService(
     GitHubClientFactory clientFactory,
     IGitHubContentService gitHubContent,
     ICacheService cache,
+    ICryptoService crypto,
     ILogger<VaultService> logger) : IVaultService
 {
     public async Task<Result<IReadOnlyList<GitHubRepoInfo>>> ListAvailableReposAsync(
@@ -108,10 +109,34 @@ public class VaultService(
         var createResult = await gitHubContent.CreateRepositoryAsync(
             installation.Value, repoName, isPrivate, ct);
 
-        if (!createResult.IsSuccess)
-            return Result.Fail<VaultRepository>(createResult.ErrorCode!, createResult.ErrorMessage!);
+        string repoFullName;
+        long repoId;
+        string defaultBranch;
 
-        var (repoId, defaultBranch, repoFullName) = createResult.Value;
+        if (!createResult.IsSuccess)
+        {
+            // Fallback: try with the user's Personal Access Token if available
+            var dbUser = await db.Users.FindAsync([userId], ct);
+            var pat = dbUser?.GitHubPersonalTokenEncrypted is not null
+                ? crypto.Decrypt(dbUser.GitHubPersonalTokenEncrypted)
+                : null;
+
+            if (pat is null)
+                return Result.Fail<VaultRepository>(
+                    ErrorCodes.GitHubError,
+                    "No se pudo crear el repositorio con la GitHub App. " +
+                    "Configura un Personal Access Token en Ajustes como alternativa.");
+
+            var patResult = await gitHubContent.CreateRepositoryWithTokenAsync(pat, repoName, isPrivate, ct);
+            if (!patResult.IsSuccess)
+                return Result.Fail<VaultRepository>(patResult.ErrorCode!, patResult.ErrorMessage!);
+
+            (repoId, defaultBranch, repoFullName) = patResult.Value;
+        }
+        else
+        {
+            (repoId, defaultBranch, repoFullName) = createResult.Value;
+        }
 
         var vault = new VaultRepository
         {
