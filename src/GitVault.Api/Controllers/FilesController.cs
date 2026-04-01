@@ -15,6 +15,30 @@ public class FilesController(
 {
     private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
 
+    /// <summary>
+    /// Sanitizes a filename: replaces spaces and special characters with hyphens,
+    /// collapses consecutive hyphens, and preserves the file extension.
+    /// Example: "WhatsApp Image 2026-03-19 at 12.27.24.jpeg" → "WhatsApp-Image-2026-03-19-at-12.27.24.jpeg"
+    /// </summary>
+    private static string SanitizeFileName(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)) return "file";
+
+        var ext = Path.GetExtension(fileName);           // ".jpeg"
+        var name = Path.GetFileNameWithoutExtension(fileName); // "WhatsApp Image 2026-03-19 at 12.27.24"
+
+        // Replace any character that is not alphanumeric, dot, or hyphen with a hyphen
+        var sanitized = System.Text.RegularExpressions.Regex.Replace(name, @"[^a-zA-Z0-9.\-]", "-");
+        // Collapse multiple consecutive hyphens into one
+        sanitized = System.Text.RegularExpressions.Regex.Replace(sanitized, @"-{2,}", "-");
+        // Trim leading/trailing hyphens
+        sanitized = sanitized.Trim('-');
+
+        if (string.IsNullOrEmpty(sanitized)) sanitized = "file";
+
+        return sanitized + ext;
+    }
+
     /// <summary>Lists all files in a vault with optional pagination.</summary>
     /// <remarks>Supports filtering by folder (`folderId`). Maximum 100 results per page.</remarks>
     [HttpGet]
@@ -66,7 +90,7 @@ public class FilesController(
             UserId = CurrentUserId,
             VaultId = vaultId,
             FolderId = folderId,
-            OriginalName = file.FileName,
+            OriginalName = SanitizeFileName(file.FileName),
             ContentType = file.ContentType,
             SizeBytes = file.Length,
             Sha256 = blobResult.Value!.Sha256,
@@ -97,7 +121,7 @@ public class FilesController(
         if (files.Count > 20) return BadRequest(new { error = "TOO_MANY_FILES", message = "Maximum 20 files per batch." });
 
         var items = files.Select(f => new BatchUploadItem(
-            f.OpenReadStream(), f.FileName, f.ContentType, folderId
+            f.OpenReadStream(), SanitizeFileName(f.FileName), f.ContentType, folderId
         )).ToList();
 
         var batchResult = await storage.UploadBlobBatchAsync(vaultId, items, ct);
