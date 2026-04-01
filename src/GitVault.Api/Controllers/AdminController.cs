@@ -1,3 +1,4 @@
+using FirebaseAdmin.Auth;
 using GitVault.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -55,10 +56,21 @@ public class AdminController(
         var user = await db.Users.FindAsync([userId], ct);
         if (user is null) return NotFound(new { error = "USER_NOT_FOUND" });
 
+        // Delete from Firebase Auth so the user cannot log back in
+        try
+        {
+            await FirebaseAuth.DefaultInstance.DeleteUserAsync(userId, ct);
+        }
+        catch (FirebaseAuthException ex) when (ex.AuthErrorCode == AuthErrorCode.UserNotFound)
+        {
+            // Already deleted from Firebase — continue with DB cleanup
+            logger.LogWarning("User {UserId} not found in Firebase (already deleted?)", userId);
+        }
+
         db.Users.Remove(user); // Cascade deletes vaults, files, apps, credentials
         await db.SaveChangesAsync(ct);
 
-        logger.LogWarning("Admin deleted user {UserId} ({Email})", userId, user.Email);
+        logger.LogWarning("Admin deleted user {UserId} ({Email}) from DB and Firebase", userId, user.Email);
         return Ok(new { deleted = true, userId });
     }
 
