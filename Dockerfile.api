@@ -13,8 +13,11 @@ RUN dotnet publish "src/GitVault.Api/GitVault.Api.csproj" \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# .NET 8+ images include a built-in non-root 'app' user
+# .NET 8+ images include a built-in non-root 'app' user (UID 1654)
 COPY --from=build --chown=app:app /app/publish .
+
+# Create data directory with correct ownership BEFORE switching to app user
+RUN mkdir -p /app/data && chown app:app /app/data
 
 USER app
 
