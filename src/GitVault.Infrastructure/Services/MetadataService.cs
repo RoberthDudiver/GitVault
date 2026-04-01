@@ -359,12 +359,12 @@ public class MetadataService(
         try
         {
             var clean = githubBase64Content.Replace("\r", "").Replace("\n", "");
-            logger.LogDebug("DecryptGitHub: raw content length={Len}, first60={Preview}",
+            logger.LogWarning("DecryptGitHub: raw content length={Len}, first60={Preview}",
                 clean.Length, clean[..Math.Min(60, clean.Length)]);
 
             var bytes = Convert.FromBase64String(clean);
             var encryptedBase64 = Encoding.UTF8.GetString(bytes);
-            logger.LogDebug("DecryptGitHub: decoded bytes={ByteLen}, encB64 length={EncLen}, first60={Preview}",
+            logger.LogWarning("DecryptGitHub: decoded bytes={ByteLen}, encB64 length={EncLen}, first60={Preview}",
                 bytes.Length, encryptedBase64.Length, encryptedBase64[..Math.Min(60, encryptedBase64.Length)]);
 
             var result = crypto.Decrypt(encryptedBase64);
