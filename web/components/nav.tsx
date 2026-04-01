@@ -23,9 +23,9 @@ export function Nav() {
             <Image
               src="/logo.png"
               alt="GitVault"
-              width={120}
-              height={32}
-              className="h-8 w-auto dark:invert-0 invert"
+              width={160}
+              height={40}
+              className="h-10 w-auto dark:invert-0 invert"
               priority
             />
           </Link>

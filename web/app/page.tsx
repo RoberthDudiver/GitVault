@@ -7,7 +7,7 @@ export default function LandingPage() {
       <header className="border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="GitVault" className="h-8 w-auto dark:invert-0 invert" />
+            <img src="/logo.png" alt="GitVault" className="h-10 w-auto dark:invert-0 invert" />
           </Link>
           <nav className="flex items-center gap-3">
             <Link
