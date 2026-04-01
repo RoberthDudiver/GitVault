@@ -50,9 +50,10 @@ public class AuthController(
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
-        // Store installation_id in a temporary in-memory structure or re-query later.
-        // For MVP: return it to the frontend so it can store it in the session.
-        var frontendUrl = config["FRONTEND_URL"] ?? "http://localhost:3000";
+        // Store the installation_id in a vault-pending entry so the user can select a repo next.
+        // The webhook (installation event) will also fire and link the installation.
+        // Redirect to frontend: https://gitvault.dudiver.net/onboarding/select-repo
+        var frontendUrl = config["FRONTEND_URL"] ?? "https://gitvault.dudiver.net";
         return Redirect($"{frontendUrl}/onboarding/select-repo?installation_id={installation_id}");
     }
 
