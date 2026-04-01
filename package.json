@@ -1,0 +1,13 @@
+{
+  "name": "gitvault",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GitVault — GitHub-backed smart file storage",
+  "scripts": {
+    "docs": "npx bmad-viewer",
+    "docs:static": "npx bmad-viewer --output ./docs-static"
+  },
+  "devDependencies": {
+    "bmad-viewer": "github:RoberthDudiver/bmad-viewer"
+  }
+}
