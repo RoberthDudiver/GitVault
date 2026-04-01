@@ -6,6 +6,7 @@ on:
     paths:
       - 'web/**'
       - '.github/workflows/deploy-web.yml'
+  workflow_dispatch: # Allow manual trigger (e.g. after updating secrets)
 
 jobs:
   build-and-deploy:

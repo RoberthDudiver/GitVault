@@ -8,6 +8,7 @@ on:
       - 'tests/**'
       - 'Dockerfile.api'
       - '.github/workflows/deploy-api.yml'
+  workflow_dispatch: # Allow manual trigger
 
 jobs:
   build-and-deploy:
