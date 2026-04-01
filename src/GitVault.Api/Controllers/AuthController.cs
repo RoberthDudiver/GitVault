@@ -4,6 +4,7 @@ using GitVault.Core.Services;
 using GitVault.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace GitVault.Api.Controllers;
 
@@ -96,16 +97,28 @@ public class AuthController(
 
         if (user is null)
         {
-            user = new User
+            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
+
+            // If email already exists under a different UID (e.g. two Firebase providers),
+            // return that existing user rather than crashing with UNIQUE constraint.
+            var existingByEmail = await db.Users
+                .FirstOrDefaultAsync(u => u.Email == email, ct);
+
+            if (existingByEmail is not null)
+                user = existingByEmail;
+            else
             {
-                UserId = userId,
-                Email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "",
-                DisplayName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-            db.Users.Add(user);
-            await db.SaveChangesAsync(ct);
+                user = new User
+                {
+                    UserId = userId,
+                    Email = email,
+                    DisplayName = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                db.Users.Add(user);
+                await db.SaveChangesAsync(ct);
+            }
         }
 
         var vaults = db.Vaults
