@@ -92,6 +92,14 @@ public class ServingController(IServingService serving) : ControllerBase
         if (!contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
             return StatusCode(415, new { error = "NOT_AN_IMAGE" });
 
+        // SVG is vector-based — ImageSharp can't process it.
+        // Serve the original SVG directly as the "thumbnail".
+        if (contentType.Equals("image/svg+xml", StringComparison.OrdinalIgnoreCase))
+        {
+            Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+            return File(contentStream, "image/svg+xml");
+        }
+
         try
         {
             using var image = await Image.LoadAsync(contentStream, ct);
