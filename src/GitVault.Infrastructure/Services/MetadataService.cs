@@ -349,44 +349,19 @@ public class MetadataService(
     }
 
     /// <summary>
-    /// GitHub returns file content double-encoded: the file bytes are returned as base64.
-    /// Our file bytes are UTF-8 of the AES-GCM base64. So the round-trip is:
+    /// GitHub file content arrives as base64 (via EncodedContent). The stored file bytes
+    /// are UTF-8 of the AES-GCM encrypted base64. Round-trip:
     ///   encode: encrypt(json) → encB64 → UTF8.GetBytes → stored in GitHub
-    ///   decode: GitHub returns base64(UTF8.GetBytes(encB64)) → decode → encB64 → decrypt → json
+    ///   decode: base64Decode(EncodedContent) → UTF8.GetString → encB64 → decrypt → json
     /// </summary>
     private string? DecryptGitHubFileContent(string githubBase64Content)
     {
         try
         {
             var clean = githubBase64Content.Replace("\r", "").Replace("\n", "");
-            logger.LogWarning("DecryptGitHub: raw content length={Len}, first60={Preview}",
-                clean.Length, clean[..Math.Min(60, clean.Length)]);
-
             var bytes = Convert.FromBase64String(clean);
             var encryptedBase64 = Encoding.UTF8.GetString(bytes);
-            logger.LogWarning("DecryptGitHub: decoded bytes={ByteLen}, encB64 length={EncLen}, first60={Preview}",
-                bytes.Length, encryptedBase64.Length, encryptedBase64[..Math.Min(60, encryptedBase64.Length)]);
-
-            var result = crypto.Decrypt(encryptedBase64);
-            if (result is null)
-                logger.LogWarning("DecryptGitHub: crypto.Decrypt returned null (key mismatch or corrupted data)");
-            return result;
-        }
-        catch (FormatException ex)
-        {
-            // Content is not valid base64 — likely already decoded by Octokit
-            logger.LogWarning(ex, "DecryptGitHub: content is not valid base64 (length={Len}). Trying direct decrypt...",
-                githubBase64Content.Length);
-            try
-            {
-                // Try treating content as already-decoded UTF-8 (the encrypted base64 string itself)
-                return crypto.Decrypt(githubBase64Content);
-            }
-            catch (Exception ex2)
-            {
-                logger.LogWarning(ex2, "DecryptGitHub: direct decrypt also failed");
-                return null;
-            }
+            return crypto.Decrypt(encryptedBase64);
         }
         catch (Exception ex)
         {

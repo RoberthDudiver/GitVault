@@ -26,9 +26,9 @@ public class GitHubContentService(
             var file = contents.FirstOrDefault();
             if (file is null) return null;
 
-            // GitHub Contents API returns empty Content for files > 1 MB.
-            // Fall back to the Git Blobs API which supports files up to 100 MB.
-            var content = file.Content;
+            // Use EncodedContent (raw base64 from API), NOT Content (which auto-decodes).
+            // Our callers expect base64 and handle decoding themselves.
+            var content = file.EncodedContent;
             if (string.IsNullOrEmpty(content))
             {
                 logger.LogDebug("File {Path} > 1 MB, fetching via Git Blobs API (git sha: {Sha})", path, file.Sha);
