@@ -56,13 +56,21 @@ public class MetadataService(
             var indexContent = EncryptIndex(indexList);
 
             // 4. Write individual + index in one atomic commit
-            await gitHubContent.WriteBatchAsync(
+            var writeResult = await gitHubContent.WriteBatchAsync(
                 vault.InstallationId,
                 vault.RepoFullName,
                 vault.DefaultBranch,
                 [($"meta/{metadata.PublicId}", metaContent), (IndexPath, indexContent)],
                 $"vault: add {metadata.PublicId[4..8]}",
                 ct);
+
+            if (!writeResult.IsSuccess)
+            {
+                logger.LogError("WriteBatchAsync failed for {PublicId}: [{Code}] {Error}",
+                    metadata.PublicId, writeResult.ErrorCode, writeResult.ErrorMessage);
+                return Result.Fail<FileMetadata>(ErrorCodes.GitHubError,
+                    writeResult.ErrorMessage ?? "Failed to write metadata to GitHub.");
+            }
 
             // 5. Cache
             cache.Set(CacheKeys.FileByPublicId(metadata.PublicId), metadata, CacheTtl.FileMetadata);
@@ -161,13 +169,21 @@ public class MetadataService(
             if (idx >= 0) indexList[idx] = metadata;
             else indexList.Add(metadata);
 
-            await gitHubContent.WriteBatchAsync(
+            var writeResult = await gitHubContent.WriteBatchAsync(
                 vault.InstallationId,
                 vault.RepoFullName,
                 vault.DefaultBranch,
                 [($"meta/{metadata.PublicId}", EncryptMetadata(metadata)), (IndexPath, EncryptIndex(indexList))],
                 $"vault: update {metadata.PublicId[4..8]}",
                 ct);
+
+            if (!writeResult.IsSuccess)
+            {
+                logger.LogError("WriteBatchAsync (update) failed for {PublicId}: [{Code}] {Error}",
+                    metadata.PublicId, writeResult.ErrorCode, writeResult.ErrorMessage);
+                return Result.Fail<FileMetadata>(ErrorCodes.GitHubError,
+                    writeResult.ErrorMessage ?? "Failed to update metadata in GitHub.");
+            }
 
             cache.Remove(CacheKeys.FileByPublicId(metadata.PublicId));
             cache.Remove(CacheKeys.FileByLogicalId(metadata.LogicalId));
@@ -203,13 +219,21 @@ public class MetadataService(
             // Remove from active index; write updated individual file
             var activeIndex = indexList.Where(f => !f.IsDeleted).ToList();
 
-            await gitHubContent.WriteBatchAsync(
+            var writeResult = await gitHubContent.WriteBatchAsync(
                 vault.InstallationId,
                 vault.RepoFullName,
                 vault.DefaultBranch,
                 [($"meta/{entry.PublicId}", EncryptMetadata(entry)), (IndexPath, EncryptIndex(activeIndex))],
                 $"vault: delete {entry.PublicId[4..8]}",
                 ct);
+
+            if (!writeResult.IsSuccess)
+            {
+                logger.LogError("WriteBatchAsync (delete) failed for {LogicalId}: [{Code}] {Error}",
+                    logicalId, writeResult.ErrorCode, writeResult.ErrorMessage);
+                return Result.Fail<bool>(ErrorCodes.GitHubError,
+                    writeResult.ErrorMessage ?? "Failed to delete metadata in GitHub.");
+            }
 
             cache.Remove(CacheKeys.FileByPublicId(entry.PublicId));
             cache.Remove(CacheKeys.FileByLogicalId(logicalId));
@@ -285,10 +309,18 @@ public class MetadataService(
         var file = await gitHubContent.ReadFileAsync(
             vault.InstallationId, vault.RepoFullName, IndexPath, ct);
 
-        if (file is null) return [];
+        if (file is null)
+        {
+            logger.LogWarning("Index file not found for vault {VaultId} ({Repo})", vault.VaultId, vault.RepoFullName);
+            return [];
+        }
 
         var json = DecryptGitHubFileContent(file.Content);
-        if (json is null) return [];
+        if (json is null)
+        {
+            logger.LogWarning("Failed to decrypt index for vault {VaultId}", vault.VaultId);
+            return [];
+        }
 
         var list = JsonSerializer.Deserialize<List<FileMetadata>>(json, JsonOpts) ?? [];
 
