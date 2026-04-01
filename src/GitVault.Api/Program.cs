@@ -32,9 +32,11 @@ try
     }
 
     // ── Serilog ───────────────────────────────────────────────────────────────
-    builder.Host.UseSerilog((ctx, services, config) => config
+    // Note: avoid ReadFrom.Services() — it causes a double Freeze() on the
+    // ReloadableLogger when the host builds its service provider, crashing on
+    // production Docker restarts.
+    builder.Host.UseSerilog((ctx, config) => config
         .ReadFrom.Configuration(ctx.Configuration)
-        .ReadFrom.Services(services)
         .Enrich.FromLogContext()
         .WriteTo.Console(outputTemplate:
             "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"));
