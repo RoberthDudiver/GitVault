@@ -111,12 +111,7 @@ public class VaultService(
         if (!createResult.IsSuccess)
             return Result.Fail<VaultRepository>(createResult.ErrorCode!, createResult.ErrorMessage!);
 
-        var (repoId, defaultBranch) = createResult.Value;
-
-        // Get the authenticated user's login to build the full name
-        var client = await clientFactory.GetInstallationClientAsync(installation.Value, ct);
-        var ghUser = await client.User.Current().WaitAsync(ct);
-        var repoFullName = $"{ghUser.Login}/{repoName}";
+        var (repoId, defaultBranch, repoFullName) = createResult.Value;
 
         var vault = new VaultRepository
         {

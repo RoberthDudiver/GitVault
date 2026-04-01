@@ -53,8 +53,8 @@ public interface IGitHubContentService
         string commitMessage,
         CancellationToken ct = default);
 
-    /// <summary>Creates a new repository under the authenticated user's account.</summary>
-    Task<Result<(long RepoId, string DefaultBranch)>> CreateRepositoryAsync(
+    /// <summary>Creates a new repository under the installation account.</summary>
+    Task<Result<(long RepoId, string DefaultBranch, string FullName)>> CreateRepositoryAsync(
         long installationId,
         string name,
         bool isPrivate,

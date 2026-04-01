@@ -167,7 +167,7 @@ public class GitHubContentService(
         }
     }
 
-    public async Task<Result<(long RepoId, string DefaultBranch)>> CreateRepositoryAsync(
+    public async Task<Result<(long RepoId, string DefaultBranch, string FullName)>> CreateRepositoryAsync(
         long installationId,
         string name,
         bool isPrivate,
@@ -179,16 +179,16 @@ public class GitHubContentService(
             var created = await client.Repository.Create(new NewRepository(name)
             {
                 Private = isPrivate,
-                AutoInit = false,
+                AutoInit = true,
                 Description = "GitVault storage repository"
             }).WaitAsync(ct);
 
-            return Result.Ok((created.Id, created.DefaultBranch ?? "main"));
+            return Result.Ok((created.Id, created.DefaultBranch ?? "main", created.FullName));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error creating repository {Name}", name);
-            return Result.Fail<(long, string)>(ErrorCodes.GitHubError, ex.Message);
+            return Result.Fail<(long, string, string)>(ErrorCodes.GitHubError, ex.Message);
         }
     }
 
