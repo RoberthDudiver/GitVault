@@ -1,0 +1,36 @@
+name: Reset Database
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "RESET" to confirm database deletion'
+        required: true
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'RESET' }}
+
+    steps:
+      - name: Reset SQLite and restart API
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          script: |
+            set -e
+            echo "Stopping API container..."
+            docker stop gitvault-api || true
+
+            echo "Deleting SQLite database..."
+            docker run --rm \
+              -v gitvault_sqlite:/data \
+              alpine sh -c "rm -f /data/gitvault.db && echo 'DB deleted'"
+
+            echo "Restarting API (MigrateAsync will create fresh DB)..."
+            cd /opt/docker-services
+            docker compose -f docker-compose.gitvault.yml up -d --no-deps gitvault-api
+
+            echo "Done. Fresh DB will be ready in ~20s."
