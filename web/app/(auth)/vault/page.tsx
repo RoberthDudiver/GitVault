@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import type { AxiosError } from "axios";
 import { useVaults, useConnectVault, useAvailableRepos } from "@/hooks/useVaults";
 import { useAuth } from "@/components/auth-context";
 import { api } from "@/lib/api";
@@ -14,8 +15,27 @@ export default function VaultListPage() {
   const connectVault = useConnectVault();
   const { githubConnected, refreshUser } = useAuth();
 
+  // GitHub connect state
   const [connectingGitHub, setConnectingGitHub] = useState(false);
   const [refreshingGitHub, setRefreshingGitHub] = useState(false);
+
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [tab, setTab] = useState<ModalTab>("select");
+  const [connecting, setConnecting] = useState<string | null>(null);
+
+  // Select tab — search
+  const [repoSearch, setRepoSearch] = useState("");
+
+  // Create tab state
+  const [newRepoName, setNewRepoName] = useState("");
+  const [newRepoPrivate, setNewRepoPrivate] = useState(true);
+  const [createError, setCreateError] = useState("");
+
+  // PAT inline prompt (shown when create fails due to permissions)
+  const [needsPat, setNeedsPat] = useState(false);
+  const [patInput, setPatInput] = useState("");
+  const [patSaving, setPatSaving] = useState(false);
 
   const handleConnectGitHub = async () => {
     setConnectingGitHub(true);
@@ -34,18 +54,10 @@ export default function VaultListPage() {
     await fetchRepos();
   };
 
-  const [showModal, setShowModal] = useState(false);
-  const [tab, setTab] = useState<ModalTab>("select");
-  const [connecting, setConnecting] = useState<string | null>(null);
-
-  // Create tab state
-  const [newRepoName, setNewRepoName] = useState("");
-  const [newRepoPrivate, setNewRepoPrivate] = useState(true);
-  const [createError, setCreateError] = useState("");
-
   const handleOpen = async () => {
     setShowModal(true);
     setTab("select");
+    setRepoSearch("");
     if (githubConnected) await fetchRepos();
   };
 
@@ -53,10 +65,15 @@ export default function VaultListPage() {
     setShowModal(false);
     setNewRepoName("");
     setCreateError("");
+    setNeedsPat(false);
+    setPatInput("");
+    setRepoSearch("");
   };
 
   const handleTabChange = async (t: ModalTab) => {
     setTab(t);
+    setCreateError("");
+    setNeedsPat(false);
     if (t === "select" && !repos && githubConnected) await fetchRepos();
   };
 
@@ -73,33 +90,69 @@ export default function VaultListPage() {
     }
   };
 
-  // Create a brand-new repo and vault in one shot
+  // Create a brand-new repo
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newRepoName.trim();
     if (!name) return;
-    // GitHub repo names: letters, numbers, hyphens, underscores, dots
     if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
       setCreateError("Nombre inválido. Usa letras, números, guiones o puntos.");
       return;
     }
     setCreateError("");
+    setNeedsPat(false);
     setConnecting(name);
     try {
-      // repoFullName will be completed server-side with the user's GitHub login
       await connectVault.mutateAsync({
-        repoFullName: name,          // server prefixes owner/
+        repoFullName: name,
         createIfNotExists: true,
         isPrivate: newRepoPrivate,
       });
       handleClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Error al crear el repositorio.";
-      setCreateError(msg);
+      const apiMsg = (err as AxiosError<{ message: string }>).response?.data?.message;
+      if (apiMsg?.includes("Personal Access Token")) {
+        setNeedsPat(true);
+        setCreateError("");
+      } else {
+        setCreateError(apiMsg ?? "Error al crear el repositorio.");
+      }
     } finally {
       setConnecting(null);
     }
   };
+
+  // Save PAT and retry creation
+  const handleSavePatAndRetry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!patInput.trim()) return;
+    setPatSaving(true);
+    setCreateError("");
+    try {
+      await api.put("/settings/github-token", { token: patInput.trim() });
+      setNeedsPat(false);
+      setPatInput("");
+      setConnecting(newRepoName);
+      await connectVault.mutateAsync({
+        repoFullName: newRepoName.trim(),
+        createIfNotExists: true,
+        isPrivate: newRepoPrivate,
+      });
+      handleClose();
+    } catch (err: unknown) {
+      const apiMsg = (err as AxiosError<{ message: string }>).response?.data?.message;
+      setCreateError(apiMsg ?? "Error al crear el repositorio con el token.");
+      setNeedsPat(false);
+    } finally {
+      setPatSaving(false);
+      setConnecting(null);
+    }
+  };
+
+  // Filtered repos for search
+  const filteredRepos = repos?.filter((r) =>
+    r.fullName.toLowerCase().includes(repoSearch.toLowerCase())
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -229,9 +282,7 @@ export default function VaultListPage() {
                         disabled={connectingGitHub}
                         className="flex items-center justify-center gap-2 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-60"
                       >
-                        {connectingGitHub ? (
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                        ) : null}
+                        {connectingGitHub && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
                         {connectingGitHub ? "Redirigiendo a GitHub…" : "Conectar GitHub"}
                       </button>
                       <button
@@ -253,13 +304,8 @@ export default function VaultListPage() {
 
                 {githubConnected && !fetchingRepos && reposError && (
                   <div className="py-6 text-center">
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
-                      No se pudieron cargar los repositorios.
-                    </p>
-                    <button
-                      onClick={() => fetchRepos()}
-                      className="text-xs text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors"
-                    >
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">No se pudieron cargar los repositorios.</p>
+                    <button onClick={() => fetchRepos()} className="text-xs text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors">
                       Reintentar
                     </button>
                   </div>
@@ -267,53 +313,77 @@ export default function VaultListPage() {
 
                 {githubConnected && !fetchingRepos && !reposError && repos?.length === 0 && (
                   <div className="py-8 text-center">
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
-                      No hay repositorios disponibles.
-                    </p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500">
-                      Asegúrate de que la GitHub App tenga acceso a tus repos.
-                    </p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">No hay repositorios disponibles.</p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500">Asegúrate de que la GitHub App tenga acceso a tus repos.</p>
                   </div>
                 )}
 
                 {githubConnected && !fetchingRepos && !reposError && repos && repos.length > 0 && (
                   <>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-3">
-                      {repos.length} repositorio{repos.length !== 1 ? "s" : ""} disponible{repos.length !== 1 ? "s" : ""}
+                    {/* Search */}
+                    <div className="relative mb-3">
+                      <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                      </svg>
+                      <input
+                        type="text"
+                        placeholder="Buscar repositorio…"
+                        value={repoSearch}
+                        onChange={(e) => setRepoSearch(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 pl-8 pr-3 py-1.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500"
+                      />
+                      {repoSearch && (
+                        <button
+                          onClick={() => setRepoSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+                      {repoSearch
+                        ? `${filteredRepos?.length ?? 0} de ${repos.length} repositorios`
+                        : `${repos.length} repositorio${repos.length !== 1 ? "s" : ""} disponible${repos.length !== 1 ? "s" : ""}`
+                      }
                     </p>
+
                     <ul className="flex flex-col gap-0.5 max-h-64 overflow-y-auto -mx-1">
-                      {repos.map((r) => {
-                        const isConnecting = connecting === r.fullName;
-                        const alreadyConnected = vaults?.some((v) => v.repoFullName === r.fullName);
-                        return (
-                          <li key={r.id}>
-                            <button
-                              onClick={() => !alreadyConnected && handleConnect(r.fullName)}
-                              disabled={isConnecting || !!alreadyConnected}
-                              className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${
-                                alreadyConnected
-                                  ? "opacity-40 cursor-not-allowed"
-                                  : "hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-medium truncate">{r.fullName}</p>
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    {r.isPrivate ? "Privado" : "Público"}
-                                  </p>
+                      {filteredRepos?.length === 0 ? (
+                        <li className="py-6 text-center text-sm text-zinc-400">
+                          Sin resultados para &ldquo;{repoSearch}&rdquo;
+                        </li>
+                      ) : (
+                        filteredRepos?.map((r) => {
+                          const isConnecting = connecting === r.fullName;
+                          const alreadyConnected = vaults?.some((v) => v.repoFullName === r.fullName);
+                          return (
+                            <li key={r.id}>
+                              <button
+                                onClick={() => !alreadyConnected && handleConnect(r.fullName)}
+                                disabled={isConnecting || !!alreadyConnected}
+                                className={`w-full text-left rounded-lg px-3 py-2.5 transition-colors ${
+                                  alreadyConnected
+                                    ? "opacity-40 cursor-not-allowed"
+                                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium truncate">{r.fullName}</p>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                      {r.isPrivate ? "Privado" : "Público"}
+                                    </p>
+                                  </div>
+                                  {alreadyConnected && <span className="shrink-0 text-xs text-zinc-400">ya conectado</span>}
+                                  {isConnecting && <div className="shrink-0 h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />}
                                 </div>
-                                {alreadyConnected && (
-                                  <span className="shrink-0 text-xs text-zinc-400">ya conectado</span>
-                                )}
-                                {isConnecting && (
-                                  <div className="shrink-0 h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />
-                                )}
-                              </div>
-                            </button>
-                          </li>
-                        );
-                      })}
+                              </button>
+                            </li>
+                          );
+                        })
+                      )}
                     </ul>
                   </>
                 )}
@@ -322,95 +392,135 @@ export default function VaultListPage() {
 
             {/* Tab: Create new repo */}
             {tab === "create" && (
-              <form onSubmit={handleCreate} className="px-6 py-4 flex flex-col gap-4">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Se creará un nuevo repositorio en tu cuenta de GitHub y se inicializará como vault de GitVault.
-                </p>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1.5" htmlFor="repo-name">
-                    Nombre del repositorio
-                  </label>
-                  <input
-                    id="repo-name"
-                    type="text"
-                    required
-                    value={newRepoName}
-                    onChange={(e) => { setNewRepoName(e.target.value); setCreateError(""); }}
-                    placeholder="mis-imagenes"
-                    className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 font-mono"
-                  />
-                  <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                    Solo letras, números, guiones y puntos. Sin espacios.
-                  </p>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium mb-2">Visibilidad</p>
-                  <div className="flex gap-3">
-                    <label className={`flex-1 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
-                      newRepoPrivate
-                        ? "border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800"
-                        : "border-zinc-200 dark:border-zinc-700 hover:border-zinc-400"
-                    }`}>
+              <div className="px-6 py-4 flex flex-col gap-4">
+                {/* PAT inline prompt */}
+                {needsPat ? (
+                  <form onSubmit={handleSavePatAndRetry} className="flex flex-col gap-3">
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3">
+                      <p className="text-xs font-medium text-amber-800 dark:text-amber-300 mb-0.5">
+                        La GitHub App no tiene permisos para crear repositorios
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        Ingresa un Personal Access Token con scope <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">repo</code>. Se guardará y reintentará automáticamente.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                        Personal Access Token
+                      </label>
                       <input
-                        type="radio"
-                        name="visibility"
-                        checked={newRepoPrivate}
-                        onChange={() => setNewRepoPrivate(true)}
-                        className="sr-only"
+                        type="password"
+                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                        value={patInput}
+                        onChange={(e) => setPatInput(e.target.value)}
+                        autoFocus
+                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 font-mono"
                       />
-                      <svg className="h-4 w-4 text-zinc-600 dark:text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                      <div>
-                        <p className="text-sm font-medium">Privado</p>
-                        <p className="text-xs text-zinc-500">Solo tú y tus apps</p>
-                      </div>
-                    </label>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        <a
+                          href="https://github.com/settings/tokens/new?scopes=repo&description=GitVault"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-zinc-600"
+                        >
+                          Crear token en GitHub ↗
+                        </a>
+                      </p>
+                    </div>
+                    {createError && <p className="text-xs text-red-600 dark:text-red-400">{createError}</p>}
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={patSaving || !patInput.trim()}
+                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50 transition-colors"
+                      >
+                        {patSaving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+                        {patSaving ? "Guardando y creando…" : "Guardar token y crear repo"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setNeedsPat(false); setCreateError(""); }}
+                        className="px-3 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <form onSubmit={handleCreate} className="flex flex-col gap-4">
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Se creará un nuevo repositorio en tu cuenta de GitHub y se inicializará como vault de GitVault.
+                    </p>
 
-                    <label className={`flex-1 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
-                      !newRepoPrivate
-                        ? "border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800"
-                        : "border-zinc-200 dark:border-zinc-700 hover:border-zinc-400"
-                    }`}>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5" htmlFor="repo-name">
+                        Nombre del repositorio
+                      </label>
                       <input
-                        type="radio"
-                        name="visibility"
-                        checked={!newRepoPrivate}
-                        onChange={() => setNewRepoPrivate(false)}
-                        className="sr-only"
+                        id="repo-name"
+                        type="text"
+                        required
+                        value={newRepoName}
+                        onChange={(e) => { setNewRepoName(e.target.value); setCreateError(""); }}
+                        placeholder="mis-imagenes"
+                        className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 font-mono"
                       />
-                      <svg className="h-4 w-4 text-zinc-600 dark:text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
-                      </svg>
-                      <div>
-                        <p className="text-sm font-medium">Público</p>
-                        <p className="text-xs text-zinc-500">CDN directo, más rápido</p>
-                      </div>
-                    </label>
-                  </div>
-                </div>
+                      <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                        Solo letras, números, guiones y puntos. Sin espacios.
+                      </p>
+                    </div>
 
-                {createError && (
-                  <p className="text-sm text-red-600 dark:text-red-400">{createError}</p>
+                    <div>
+                      <p className="text-sm font-medium mb-2">Visibilidad</p>
+                      <div className="flex gap-3">
+                        <label className={`flex-1 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                          newRepoPrivate
+                            ? "border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800"
+                            : "border-zinc-200 dark:border-zinc-700 hover:border-zinc-400"
+                        }`}>
+                          <input type="radio" name="visibility" checked={newRepoPrivate} onChange={() => setNewRepoPrivate(true)} className="sr-only" />
+                          <svg className="h-4 w-4 text-zinc-600 dark:text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium">Privado</p>
+                            <p className="text-xs text-zinc-500">Solo tú y tus apps</p>
+                          </div>
+                        </label>
+                        <label className={`flex-1 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
+                          !newRepoPrivate
+                            ? "border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800"
+                            : "border-zinc-200 dark:border-zinc-700 hover:border-zinc-400"
+                        }`}>
+                          <input type="radio" name="visibility" checked={!newRepoPrivate} onChange={() => setNewRepoPrivate(false)} className="sr-only" />
+                          <svg className="h-4 w-4 text-zinc-600 dark:text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
+                          </svg>
+                          <div>
+                            <p className="text-sm font-medium">Público</p>
+                            <p className="text-xs text-zinc-500">CDN directo, más rápido</p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {createError && <p className="text-sm text-red-600 dark:text-red-400">{createError}</p>}
+
+                    <button
+                      type="submit"
+                      disabled={!!connecting || !newRepoName.trim()}
+                      className="flex items-center justify-center gap-2 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50"
+                    >
+                      {connecting ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                          Creando…
+                        </>
+                      ) : "Crear repo y vault"}
+                    </button>
+                  </form>
                 )}
-
-                <button
-                  type="submit"
-                  disabled={!!connecting || !newRepoName.trim()}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50"
-                >
-                  {connecting ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      Creando…
-                    </>
-                  ) : (
-                    "Crear repo y vault"
-                  )}
-                </button>
-              </form>
+              </div>
             )}
 
             <div className="px-6 pb-5" />
