@@ -1,21 +1,20 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using FirebaseAdmin.Auth;
+using GitVault.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace GitVault.Api.Middleware;
 
 public class FirebaseAuthOptions : AuthenticationSchemeOptions;
 
-/// <summary>
-/// ASP.NET Core authentication handler that validates Firebase ID tokens.
-/// Populates ClaimsPrincipal with uid, email and display name.
-/// </summary>
 public class FirebaseAuthHandler(
     IOptionsMonitor<FirebaseAuthOptions> options,
     ILoggerFactory logger,
-    UrlEncoder encoder)
+    UrlEncoder encoder,
+    IServiceScopeFactory scopeFactory)
     : AuthenticationHandler<FirebaseAuthOptions>(options, logger, encoder)
 {
     public const string SchemeName = "Firebase";
@@ -33,6 +32,14 @@ public class FirebaseAuthHandler(
         try
         {
             var decoded = await FirebaseAuth.DefaultInstance.VerifyIdTokenAsync(idToken);
+
+            // Check if user is blocked
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<GitVaultDbContext>();
+            var user = await db.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == decoded.Uid);
+            if (user?.IsBlocked == true)
+                return AuthenticateResult.Fail("Account is blocked.");
 
             var claims = new List<Claim>
             {

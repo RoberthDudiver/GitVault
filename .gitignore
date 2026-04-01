@@ -50,6 +50,7 @@ desktop.ini
 # ─── Local dev / private notes ───────────────────────────────────────────────
 server-credentials.txt
 server-setup-guide.md
+admin-access.txt
 .claude/
 
 # ─── Docker ──────────────────────────────────────────────────────────────────

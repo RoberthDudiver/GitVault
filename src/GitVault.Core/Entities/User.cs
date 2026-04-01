@@ -11,6 +11,7 @@ public class User
     public long? GitHubUserId { get; set; }
     public string? GitHubLogin { get; set; }
     public string Plan { get; set; } = "free";
+    public bool IsBlocked { get; set; } = false;
     /// <summary>
     /// GitHub App installation ID for this user.
     /// Set when the user installs the GitHub App (callback or webhook).
