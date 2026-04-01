@@ -214,10 +214,8 @@ public class VaultService(
 
     private async Task<long?> GetInstallationIdAsync(string userId, CancellationToken ct)
     {
-        // For MVP: look up any vault for this user to find the installation_id.
-        // A more complete model would store it separately in a GitHubInstallation table.
-        var vault = await db.Vaults.FirstOrDefaultAsync(v => v.UserId == userId, ct);
-        return vault?.InstallationId;
+        var user = await db.Users.FindAsync([userId], ct);
+        return user?.GitHubInstallationId;
     }
 
     private static (string Owner, string Repo) SplitRepo(string fullName)

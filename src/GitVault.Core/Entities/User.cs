@@ -11,6 +11,12 @@ public class User
     public long? GitHubUserId { get; set; }
     public string? GitHubLogin { get; set; }
     public string Plan { get; set; } = "free";
+    /// <summary>
+    /// GitHub App installation ID for this user.
+    /// Set when the user installs the GitHub App (callback or webhook).
+    /// Required before any vault operation.
+    /// </summary>
+    public long? GitHubInstallationId { get; set; }
     public string? DefaultVaultId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

@@ -3,6 +3,7 @@ using GitVault.Api.Middleware;
 using GitVault.Core.Services;
 using GitVault.Infrastructure.Cache;
 using GitVault.Infrastructure.Crypto;
+using GitVault.Infrastructure.Firebase;
 using GitVault.Infrastructure.GitHub;
 using GitVault.Infrastructure.Persistence;
 using GitVault.Infrastructure.Services;
@@ -77,6 +78,7 @@ try
     builder.Services.AddScoped<IServingService, ServingService>();
     builder.Services.AddScoped<IVaultService, VaultService>();
     builder.Services.AddScoped<IAppService, AppService>();
+    builder.Services.AddScoped<IFirebaseTokenValidator, FirebaseTokenValidator>();
 
     // ── Authentication ────────────────────────────────────────────────────────
     builder.Services.AddAuthentication()

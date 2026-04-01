@@ -89,7 +89,7 @@ public class WebhookController(
             "Installation event: action={Action}, installation_id={Id}, sender={Sender}",
             action, installationId, senderLogin);
 
-        // When action = "created": link the installation to the user with this GitHub ID
+        // When action = "created": link the installation_id to the matching user
         if (action == "created" && senderId.HasValue)
         {
             var user = await db.Users.FirstOrDefaultAsync(
@@ -97,17 +97,21 @@ public class WebhookController(
 
             if (user is not null)
             {
-                // Update any vaults from this user to use the new installation_id
+                user.GitHubInstallationId = installationId;
+                user.GitHubLogin = senderLogin;
+                user.UpdatedAt = DateTime.UtcNow;
+
+                // Keep existing vaults in sync
                 var vaults = await db.Vaults
                     .Where(v => v.UserId == user.UserId)
                     .ToListAsync(ct);
-
                 foreach (var vault in vaults)
                     vault.InstallationId = installationId;
 
                 await db.SaveChangesAsync(ct);
                 logger.LogInformation(
-                    "Linked installation {Id} to user {UserId}", installationId, user.UserId);
+                    "Linked installation {Id} to user {UserId} ({Login})",
+                    installationId, user.UserId, senderLogin);
             }
         }
 
