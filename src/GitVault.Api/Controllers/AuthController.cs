@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace GitVault.Api.Controllers;
 
+public record LinkInstallationRequest(long InstallationId);
+
 [ApiController]
 [Route("v1/auth")]
 [Produces("application/json")]
@@ -58,6 +60,28 @@ public class AuthController(
 
         var frontendUrl = config["FRONTEND_URL"] ?? "https://gitvault.dudiver.net";
         return Redirect($"{frontendUrl}/onboarding/select-repo?installation_id={installation_id}");
+    }
+
+    /// <summary>
+    /// Links an existing GitHub App installation to the current user.
+    /// Used when the app is already installed and the OAuth callback with state cannot be used.
+    /// </summary>
+    [HttpPost("github/link-installation")]
+    [Authorize(AuthenticationSchemes = "Firebase")]
+    public async Task<IActionResult> LinkInstallation(
+        [FromBody] LinkInstallationRequest req,
+        CancellationToken ct)
+    {
+        var userId = User.UserId();
+        var user = await db.Users.FindAsync([userId], ct);
+        if (user is null)
+            return BadRequest(new { error = "USER_NOT_FOUND" });
+
+        user.GitHubInstallationId = req.InstallationId;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return Ok(new { github_connected = true });
     }
 
     /// <summary>

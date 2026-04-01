@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-context";
+import { api } from "@/lib/api";
 
 function SelectRepoInner() {
   const { refreshUser } = useAuth();
@@ -17,15 +18,16 @@ function SelectRepoInner() {
     const installationId = searchParams.get("installation_id");
 
     if (!installationId) {
-      // No installation_id means something went wrong — send back to onboarding
       router.replace("/onboarding");
       return;
     }
 
-    // Re-fetch /auth/me so the context picks up github_connected = true
-    refreshUser().then(() => {
-      router.replace("/vault");
-    });
+    // Link the installation_id to the current user, then refresh and redirect
+    api.post("/auth/github/link-installation", { installation_id: Number(installationId) })
+      .catch(() => { /* ignore if already linked */ })
+      .finally(() => {
+        refreshUser().then(() => router.replace("/vault"));
+      });
   }, [router, searchParams, refreshUser]);
 
   return (
