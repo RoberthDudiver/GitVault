@@ -116,7 +116,7 @@ public class AppService(
         string appId, string userId, CancellationToken ct)
     {
         return await db.Credentials
-            .Where(c => c.AppId == appId && c.UserId == userId)
+            .Where(c => c.AppId == appId && c.UserId == userId && c.IsActive)
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync(ct);
     }
