@@ -161,20 +161,18 @@ public class AppService(
         // Verify the secret against the stored bcrypt hash (timing-safe)
         if (!crypto.VerifySecret(apiSecret, cred.ApiSecretHash)) return null;
 
-        // Update last_used_at in the background (don't await — non-critical)
-        _ = Task.Run(async () =>
+        // Update last_used_at synchronously before returning — using the same DbContext
+        // concurrently via Task.Run causes "second operation started" errors.
+        try
         {
-            try
-            {
-                cred.LastUsedAt = DateTime.UtcNow;
-                cred.App.LastUsedAt = DateTime.UtcNow;
-                await db.SaveChangesAsync(CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to update last_used_at for credential {CredentialId}", cred.CredentialId);
-            }
-        }, CancellationToken.None);
+            cred.LastUsedAt = DateTime.UtcNow;
+            cred.App.LastUsedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to update last_used_at for credential {CredentialId}", cred.CredentialId);
+        }
 
         return cred.App;
     }
