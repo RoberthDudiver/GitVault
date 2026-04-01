@@ -76,12 +76,15 @@ public class FilesController(
         if (file.Length > MaxFileSizeBytes)
             return BadRequest(new { error = ErrorCodes.FileTooLarge, message = "Max file size is 10 MB." });
 
+        var vault = await vaultService.GetVaultAsync(vaultId, CurrentUserId, ct);
+        if (vault is null) return Forbid();
+
         using var stream = file.OpenReadStream();
         var blobResult = await storage.UploadBlobAsync(vaultId, stream, file.ContentType, ct);
         if (!blobResult.IsSuccess) return FromResult(blobResult);
 
         var logicalId = crypto.NewLogicalId();
-        var publicId = crypto.ComputePublicId(logicalId);
+        var publicId = crypto.ComputePublicId(logicalId, vault.ShortCode);
 
         var fileMeta = new FileMetadata
         {
@@ -120,6 +123,9 @@ public class FilesController(
         if (files.Count == 0) return BadRequest(new { error = "NO_FILES" });
         if (files.Count > 20) return BadRequest(new { error = "TOO_MANY_FILES", message = "Maximum 20 files per batch." });
 
+        var vault = await vaultService.GetVaultAsync(vaultId, CurrentUserId, ct);
+        if (vault is null) return Forbid();
+
         var items = files.Select(f => new BatchUploadItem(
             f.OpenReadStream(), SanitizeFileName(f.FileName), f.ContentType, folderId
         )).ToList();
@@ -132,7 +138,7 @@ public class FilesController(
         foreach (var (item, blob) in batchResult.Succeeded)
         {
             var logicalId = crypto.NewLogicalId();
-            var publicId = crypto.ComputePublicId(logicalId);
+            var publicId = crypto.ComputePublicId(logicalId, vault.ShortCode);
             var fileMeta = new FileMetadata
             {
                 LogicalId = logicalId,

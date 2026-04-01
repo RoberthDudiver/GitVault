@@ -9,8 +9,11 @@ public interface IMetadataService
 
     Task<Result<FileMetadata>> CreateFileMetadataAsync(FileMetadata metadata, CancellationToken ct = default);
 
-    /// <summary>Resolves by public_id (used in serving). Checks cache, then repo index.</summary>
-    Task<FileMetadata?> GetByPublicIdAsync(string vaultId, string publicId, CancellationToken ct = default);
+    /// <summary>
+    /// Resolves by public_id for serving. Extracts vault short code from publicId.
+    /// Does not require vaultId — the short code embedded in publicId identifies the vault.
+    /// </summary>
+    Task<FileMetadata?> GetByPublicIdAsync(string publicId, CancellationToken ct = default);
 
     Task<FileMetadata?> GetByLogicalIdAsync(string vaultId, string logicalId, CancellationToken ct = default);
 

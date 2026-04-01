@@ -7,7 +7,6 @@ public class GitVaultDbContext(DbContextOptions<GitVaultDbContext> options) : Db
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<VaultRepository> Vaults => Set<VaultRepository>();
-    public DbSet<FileMetadata> Files => Set<FileMetadata>();
     public DbSet<FolderMetadata> Folders => Set<FolderMetadata>();
     public DbSet<AppClient> Apps => Set<AppClient>();
     public DbSet<ApiCredential> Credentials => Set<ApiCredential>();
@@ -28,24 +27,11 @@ public class GitVaultDbContext(DbContextOptions<GitVaultDbContext> options) : Db
             e.HasKey(v => v.VaultId);
             e.HasIndex(v => new { v.UserId, v.RepoFullName }).IsUnique();
             e.HasIndex(v => v.InstallationId);
+            e.HasIndex(v => v.ShortCode).IsUnique();
             e.HasOne(v => v.User)
              .WithMany()
              .HasForeignKey(v => v.UserId)
              .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        // ── FileMetadata ──────────────────────────────────────────────────────
-        model.Entity<FileMetadata>(e =>
-        {
-            e.HasKey(f => f.LogicalId);
-            e.HasIndex(f => f.PublicId).IsUnique();
-            e.HasIndex(f => new { f.VaultId, f.FolderId });
-            e.HasIndex(f => new { f.VaultId, f.IsDeleted });
-            e.HasOne(f => f.Vault)
-             .WithMany()
-             .HasForeignKey(f => f.VaultId)
-             .OnDelete(DeleteBehavior.Cascade);
-            e.Property(f => f.Visibility).HasConversion<string>();
         });
 
         // ── FolderMetadata ────────────────────────────────────────────────────

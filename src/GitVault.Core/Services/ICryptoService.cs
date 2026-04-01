@@ -6,17 +6,26 @@ public interface ICryptoService
     string ComputeSha256(Stream content);
 
     /// <summary>
-    /// Derives the public-facing ID for a file.
-    /// public_id = BASE62( HMAC-SHA256(logicalId, SERVER_SECRET)[0..11] )
-    /// This is a one-way operation without SERVER_SECRET.
+    /// Derives the public-facing ID for a file, embedding the vault short code.
+    /// public_id = vaultShortCode(4 chars) + BASE62_FIXED( HMAC-SHA256(logicalId, SERVER_SECRET)[0..9], 12 chars )
+    /// Total: 16 characters. The first 4 chars identify the vault; the last 12 verify the file.
     /// </summary>
-    string ComputePublicId(string logicalId);
+    string ComputePublicId(string logicalId, string vaultShortCode);
+
+    /// <summary>
+    /// Extracts the vault short code (first 4 characters) from a public ID.
+    /// Used to route serving requests directly to the correct vault without a file-table lookup.
+    /// </summary>
+    string ExtractVaultShortCode(string publicId);
 
     /// <summary>
     /// Verifies that a public_id was derived from the given logicalId using SERVER_SECRET.
-    /// Used during resolution to prevent forged public IDs.
+    /// Extracts the vault short code from the public_id itself to recompute the expected value.
     /// </summary>
     bool VerifyPublicId(string publicId, string logicalId);
+
+    /// <summary>Generates a random 4-character base62 vault short code (stored in VaultRepository.ShortCode).</summary>
+    string GenerateVaultShortCode();
 
     /// <summary>Generates a new API key. Format: "gvk_{16 chars base62}".</summary>
     string GenerateApiKey();

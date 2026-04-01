@@ -20,6 +20,9 @@ public static class CacheKeys
     public static string FileByLogicalId(string logicalId) => $"file:lid:{logicalId}";
     public static string FileNotFound(string publicId) => $"file:pub:nf:{publicId}";
 
+    // Vault file index (encrypted list in GitHub, cached for listing)
+    public static string VaultFileIndex(string vaultId) => $"vault:idx:{vaultId}";
+
     // Blob existence (immutable — CAS blobs never disappear)
     public static string BlobExists(string sha256) => $"blob:{sha256}";
 
@@ -48,11 +51,12 @@ public static class CacheKeys
 public static class CacheTtl
 {
     public static readonly TimeSpan FileMetadata = TimeSpan.FromHours(1);
-    public static readonly TimeSpan BlobExists = TimeSpan.FromHours(2);   // Blobs are immutable
+    public static readonly TimeSpan VaultFileIndex = TimeSpan.FromMinutes(15);
+    public static readonly TimeSpan BlobExists = TimeSpan.FromHours(2);
     public static readonly TimeSpan Folder = TimeSpan.FromHours(1);
     public static readonly TimeSpan Vault = TimeSpan.FromHours(1);
     public static readonly TimeSpan App = TimeSpan.FromMinutes(30);
     public static readonly TimeSpan Credential = TimeSpan.FromMinutes(30);
-    public static readonly TimeSpan GitHubToken = TimeSpan.FromMinutes(55); // GH tokens last 1h
+    public static readonly TimeSpan GitHubToken = TimeSpan.FromMinutes(55);
     public static readonly TimeSpan NotFound = TimeSpan.FromMinutes(15);
 }

@@ -76,6 +76,7 @@ public class VaultService(
                 IsPrivate = ghRepo.Private,
                 DefaultBranch = ghRepo.DefaultBranch ?? "main",
                 IsInitialized = false,
+                ShortCode = crypto.GenerateVaultShortCode(),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -148,6 +149,7 @@ public class VaultService(
             IsPrivate = isPrivate,
             DefaultBranch = defaultBranch,
             IsInitialized = false,
+            ShortCode = crypto.GenerateVaultShortCode(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -174,6 +176,15 @@ public class VaultService(
 
         var vault = await db.Vaults.FirstOrDefaultAsync(
             v => v.VaultId == vaultId && v.UserId == userId, ct);
+
+        // Lazily assign ShortCode to vaults that pre-date the migration
+        if (vault is not null && string.IsNullOrEmpty(vault.ShortCode))
+        {
+            vault.ShortCode = crypto.GenerateVaultShortCode();
+            vault.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            cache.Remove(CacheKeys.Vault(vaultId));
+        }
 
         if (vault is not null) cache.Set(cacheKey, vault, CacheTtl.Vault);
         return vault;

@@ -9,10 +9,10 @@ namespace GitVault.Infrastructure.Crypto;
 /// Root of trust for GitVault's security model.
 ///
 /// Security properties:
-///   - public_id = BASE62( HMAC-SHA256(logicalId, SERVER_SECRET)[0..11] )
+///   - public_id = vaultShortCode(4) + BASE62_FIXED( HMAC-SHA256(logicalId, SERVER_SECRET)[0..9], 12 )
 ///   - SERVER_SECRET lives ONLY in server environment variables.
-///   - The algorithm is public (open source). Security depends solely on SERVER_SECRET.
-///   - A DLL/SDK can include this code freely — without SERVER_SECRET it is useless.
+///   - The first 4 chars of a public_id identify the vault (no file-table lookup needed).
+///   - The last 12 chars are HMAC-derived — unforgeable without SERVER_SECRET.
 /// </summary>
 public class CryptoService : ICryptoService
 {
@@ -30,7 +30,6 @@ public class CryptoService : ICryptoService
 
         _serverSecretBytes = Encoding.UTF8.GetBytes(secret);
 
-        // Derive a 256-bit AES key from SERVER_SECRET using HKDF-SHA256
         _aesKey = HKDF.DeriveKey(HashAlgorithmName.SHA256, _serverSecretBytes, 32,
             info: "GitVault-AES-PAT-v1"u8.ToArray());
     }
@@ -45,36 +44,47 @@ public class CryptoService : ICryptoService
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
-    // ── Public ID (HMAC-based) ────────────────────────────────────────────────
+    // ── Public ID (vault-scoped HMAC) ─────────────────────────────────────────
 
-    public string ComputePublicId(string logicalId)
+    public string ComputePublicId(string logicalId, string vaultShortCode)
     {
         var inputBytes = Encoding.UTF8.GetBytes(logicalId);
         var hmac = HMACSHA256.HashData(_serverSecretBytes, inputBytes);
-        // Take first 12 bytes → ~16 base62 chars (96 bits of entropy)
-        return ToBase62(hmac[..12]);
+        // Embed vault short code (4 chars) + HMAC-derived suffix (12 chars) = 16 chars total
+        return vaultShortCode + ToBase62Fixed(hmac[..9], 12);
     }
+
+    public string ExtractVaultShortCode(string publicId)
+        => publicId.Length >= 4 ? publicId[..4] : string.Empty;
 
     public bool VerifyPublicId(string publicId, string logicalId)
     {
-        var expected = ComputePublicId(logicalId);
-        // Constant-time comparison to avoid timing attacks
+        if (publicId.Length < 4) return false;
+        var shortCode = publicId[..4];
+        var expected = ComputePublicId(logicalId, shortCode);
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(publicId),
             Encoding.UTF8.GetBytes(expected));
+    }
+
+    public string GenerateVaultShortCode()
+    {
+        // 3 bytes = 24 bits → base62 → pad/trim to exactly 4 chars
+        var bytes = RandomNumberGenerator.GetBytes(3);
+        return ToBase62Fixed(bytes, 4);
     }
 
     // ── API Key & Secret generation ───────────────────────────────────────────
 
     public string GenerateApiKey()
     {
-        var bytes = RandomNumberGenerator.GetBytes(12); // 96 bits
+        var bytes = RandomNumberGenerator.GetBytes(12);
         return "gvk_" + ToBase62(bytes);
     }
 
     public string GenerateApiSecret()
     {
-        var bytes = RandomNumberGenerator.GetBytes(24); // 192 bits
+        var bytes = RandomNumberGenerator.GetBytes(24);
         return "gvs_" + ToBase62(bytes);
     }
 
@@ -92,7 +102,6 @@ public class CryptoService : ICryptoService
 
     public string GenerateStateToken(string userId)
     {
-        // state = base64url( userId:timestamp:hmac )
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var payload = $"{userId}:{timestamp}";
         var payloadBytes = Encoding.UTF8.GetBytes(payload);
@@ -118,11 +127,9 @@ public class CryptoService : ICryptoService
             var timestamp = long.Parse(parts[1]);
             var providedHmac = parts[2];
 
-            // Reject tokens older than 10 minutes
             var age = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - timestamp;
             if (age > 600) return null;
 
-            // Verify HMAC
             var payload = $"{userId}:{timestamp}";
             var expected = Convert.ToBase64String(
                 HMACSHA256.HashData(_serverSecretBytes, Encoding.UTF8.GetBytes(payload)));
@@ -144,15 +151,14 @@ public class CryptoService : ICryptoService
 
     public string Encrypt(string plaintext)
     {
-        var nonce = RandomNumberGenerator.GetBytes(AesGcm.NonceByteSizes.MaxSize); // 12 bytes
-        var tag = new byte[AesGcm.TagByteSizes.MaxSize];                            // 16 bytes
+        var nonce = RandomNumberGenerator.GetBytes(AesGcm.NonceByteSizes.MaxSize);
+        var tag = new byte[AesGcm.TagByteSizes.MaxSize];
         var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
         var ciphertext = new byte[plaintextBytes.Length];
 
         using var aes = new AesGcm(_aesKey, AesGcm.TagByteSizes.MaxSize);
         aes.Encrypt(nonce, plaintextBytes, ciphertext, tag);
 
-        // Layout: nonce(12) + tag(16) + ciphertext(n)
         var combined = new byte[nonce.Length + tag.Length + ciphertext.Length];
         nonce.CopyTo(combined, 0);
         tag.CopyTo(combined, nonce.Length);
@@ -191,8 +197,6 @@ public class CryptoService : ICryptoService
     public string ToBase62(byte[] bytes)
     {
         if (bytes.Length == 0) return string.Empty;
-
-        // Treat bytes as a big-endian unsigned integer and divide by 62
         var result = new System.Text.StringBuilder();
         var value = new System.Numerics.BigInteger(bytes, isUnsigned: true, isBigEndian: true);
         var base62 = new System.Numerics.BigInteger(62);
@@ -204,5 +208,26 @@ public class CryptoService : ICryptoService
         }
 
         return result.Length == 0 ? "0" : result.ToString();
+    }
+
+    /// <summary>
+    /// Encodes bytes as exactly <paramref name="length"/> base62 characters.
+    /// Extracts digits from LSB (right-to-left), discarding excess high-order bits.
+    /// Guarantees a constant-length output regardless of leading zero bytes.
+    /// </summary>
+    private static string ToBase62Fixed(byte[] bytes, int length)
+    {
+        var result = new char[length];
+        var value = new System.Numerics.BigInteger(bytes, isUnsigned: true, isBigEndian: true);
+        var base62 = new System.Numerics.BigInteger(62);
+        const string chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+        for (var i = length - 1; i >= 0; i--)
+        {
+            value = System.Numerics.BigInteger.DivRem(value, base62, out var rem);
+            result[i] = chars[(int)rem];
+        }
+
+        return new string(result);
     }
 }

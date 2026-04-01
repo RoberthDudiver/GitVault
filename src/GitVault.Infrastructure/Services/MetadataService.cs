@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using GitVault.Core.Common;
 using GitVault.Core.Entities;
 using GitVault.Core.Services;
@@ -10,48 +11,89 @@ using Microsoft.Extensions.Logging;
 namespace GitVault.Infrastructure.Services;
 
 /// <summary>
-/// Manages file and folder metadata.
+/// File metadata is stored ONLY in GitHub (encrypted). SQLite is used only for vault lookups.
 ///
-/// Dual-write strategy:
-///   1. SQLite (primary) — for fast queries, listing, resolution
-///   2. GitHub repo (secondary) — /meta/files/{ab}/{cd}/{logical_id}.json
-///      and /meta/index/public_ids/{ab}/{cd}/{public_id}
-///      These act as the source of truth / backup if SQLite is lost.
+/// GitHub structure per vault repo:
+///   meta/{publicId}   — AES-256-GCM encrypted JSON for each individual file (O(1) serving lookup)
+///   meta/_idx.enc     — AES-256-GCM encrypted JSON array of all non-deleted files (for listing)
+///
+/// Folder metadata continues to live in SQLite (small, structural data).
 /// </summary>
 public class MetadataService(
     GitVaultDbContext db,
     IGitHubContentService gitHubContent,
     ICacheService cache,
+    ICryptoService crypto,
     ILogger<MetadataService> logger) : IMetadataService
 {
+    private const string IndexPath = "meta/_idx.enc";
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    // ── File metadata — GitHub primary ────────────────────────────────────────
+
     public async Task<Result<FileMetadata>> CreateFileMetadataAsync(
         FileMetadata metadata, CancellationToken ct)
     {
-        // 1. Persist to SQLite
-        db.Files.Add(metadata);
-        await db.SaveChangesAsync(ct);
+        var vault = await db.Vaults.FindAsync([metadata.VaultId], ct);
+        if (vault is null)
+            return Result.Fail<FileMetadata>(ErrorCodes.NotFound, "Vault not found.");
 
-        // 2. Write to repo (fire-and-forget to not block the response)
-        _ = WriteFileMetaToRepoAsync(metadata, ct);
+        try
+        {
+            // 1. Read current index (or start fresh)
+            var indexList = await ReadIndexAsync(vault, ct);
 
-        // 3. Cache
-        cache.Set(CacheKeys.FileByLogicalId(metadata.LogicalId), metadata, CacheTtl.FileMetadata);
-        cache.Set(CacheKeys.FileByPublicId(metadata.PublicId), metadata, CacheTtl.FileMetadata);
+            // 2. Add new entry
+            indexList.Add(metadata);
 
-        return Result.Ok(metadata);
+            // 3. Encrypt both files
+            var metaContent = EncryptMetadata(metadata);
+            var indexContent = EncryptIndex(indexList);
+
+            // 4. Write individual + index in one atomic commit
+            await gitHubContent.WriteBatchAsync(
+                vault.InstallationId,
+                vault.RepoFullName,
+                vault.DefaultBranch,
+                [($"meta/{metadata.PublicId}", metaContent), (IndexPath, indexContent)],
+                $"vault: add {metadata.PublicId[4..8]}",
+                ct);
+
+            // 5. Cache
+            cache.Set(CacheKeys.FileByPublicId(metadata.PublicId), metadata, CacheTtl.FileMetadata);
+            cache.Set(CacheKeys.FileByLogicalId(metadata.LogicalId), metadata, CacheTtl.FileMetadata);
+            cache.Remove(CacheKeys.VaultFileIndex(metadata.VaultId));
+
+            return Result.Ok(metadata);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to write metadata to GitHub for {PublicId}", metadata.PublicId);
+            return Result.Fail<FileMetadata>(ErrorCodes.GitHubError, "Failed to store file metadata.");
+        }
     }
 
-    public async Task<FileMetadata?> GetByPublicIdAsync(string vaultId, string publicId, CancellationToken ct)
+    public async Task<FileMetadata?> GetByPublicIdAsync(string publicId, CancellationToken ct)
     {
-        // Check negative cache first
         if (cache.IsNotFound(CacheKeys.FileNotFound(publicId))) return null;
-
-        // Check positive cache
         if (cache.TryGet<FileMetadata>(CacheKeys.FileByPublicId(publicId), out var cached)) return cached;
 
-        // Query SQLite
-        var file = await db.Files.FirstOrDefaultAsync(
-            f => f.VaultId == vaultId && f.PublicId == publicId && !f.IsDeleted, ct);
+        // Derive vault from shortCode embedded in publicId
+        var shortCode = crypto.ExtractVaultShortCode(publicId);
+        var vault = await db.Vaults.FirstOrDefaultAsync(v => v.ShortCode == shortCode, ct);
+        if (vault is null)
+        {
+            cache.SetNotFound(CacheKeys.FileNotFound(publicId));
+            return null;
+        }
+
+        var file = await gitHubContent.ReadFileAsync(
+            vault.InstallationId, vault.RepoFullName, $"meta/{publicId}", ct);
 
         if (file is null)
         {
@@ -59,36 +101,47 @@ public class MetadataService(
             return null;
         }
 
-        cache.Set(CacheKeys.FileByPublicId(publicId), file, CacheTtl.FileMetadata);
-        cache.Set(CacheKeys.FileByLogicalId(file.LogicalId), file, CacheTtl.FileMetadata);
-        return file;
+        var metadata = DecryptMetadata(file.Content);
+        if (metadata is null || metadata.IsDeleted)
+        {
+            cache.SetNotFound(CacheKeys.FileNotFound(publicId));
+            return null;
+        }
+
+        cache.Set(CacheKeys.FileByPublicId(publicId), metadata, CacheTtl.FileMetadata);
+        cache.Set(CacheKeys.FileByLogicalId(metadata.LogicalId), metadata, CacheTtl.FileMetadata);
+        return metadata;
     }
 
     public async Task<FileMetadata?> GetByLogicalIdAsync(string vaultId, string logicalId, CancellationToken ct)
     {
         if (cache.TryGet<FileMetadata>(CacheKeys.FileByLogicalId(logicalId), out var cached)) return cached;
 
-        var file = await db.Files.FirstOrDefaultAsync(
-            f => f.VaultId == vaultId && f.LogicalId == logicalId && !f.IsDeleted, ct);
+        var vault = await db.Vaults.FindAsync([vaultId], ct);
+        if (vault is null) return null;
 
-        if (file is not null)
-            cache.Set(CacheKeys.FileByLogicalId(logicalId), file, CacheTtl.FileMetadata);
+        var index = await ReadIndexAsync(vault, ct);
+        var entry = index.FirstOrDefault(f => f.LogicalId == logicalId && !f.IsDeleted);
+        if (entry is null) return null;
 
-        return file;
+        cache.Set(CacheKeys.FileByLogicalId(logicalId), entry, CacheTtl.FileMetadata);
+        return entry;
     }
 
     public async Task<(IReadOnlyList<FileMetadata> Items, int Total)> ListFilesAsync(
         string vaultId, string? folderId, int page, int pageSize, CancellationToken ct)
     {
-        var query = db.Files.Where(f => f.VaultId == vaultId && !f.IsDeleted);
+        var vault = await db.Vaults.FindAsync([vaultId], ct);
+        if (vault is null) return ([], 0);
+
+        var index = await ReadIndexAsync(vault, ct);
+
+        var query = index.Where(f => !f.IsDeleted);
         if (folderId is not null) query = query.Where(f => f.FolderId == folderId);
 
-        var total = await query.CountAsync(ct);
-        var items = await query
-            .OrderByDescending(f => f.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(ct);
+        var sorted = query.OrderByDescending(f => f.CreatedAt).ToList();
+        var total = sorted.Count;
+        var items = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
         return (items, total);
     }
@@ -96,38 +149,83 @@ public class MetadataService(
     public async Task<Result<FileMetadata>> UpdateFileAsync(FileMetadata metadata, CancellationToken ct)
     {
         metadata.UpdatedAt = DateTime.UtcNow;
-        db.Files.Update(metadata);
-        await db.SaveChangesAsync(ct);
 
-        // Invalidate cache
-        cache.Remove(CacheKeys.FileByLogicalId(metadata.LogicalId));
-        cache.Remove(CacheKeys.FileByPublicId(metadata.PublicId));
+        var vault = await db.Vaults.FindAsync([metadata.VaultId], ct);
+        if (vault is null)
+            return Result.Fail<FileMetadata>(ErrorCodes.NotFound, "Vault not found.");
 
-        _ = WriteFileMetaToRepoAsync(metadata, ct);
+        try
+        {
+            var indexList = await ReadIndexAsync(vault, ct);
+            var idx = indexList.FindIndex(f => f.LogicalId == metadata.LogicalId);
+            if (idx >= 0) indexList[idx] = metadata;
+            else indexList.Add(metadata);
 
-        return Result.Ok(metadata);
+            await gitHubContent.WriteBatchAsync(
+                vault.InstallationId,
+                vault.RepoFullName,
+                vault.DefaultBranch,
+                [($"meta/{metadata.PublicId}", EncryptMetadata(metadata)), (IndexPath, EncryptIndex(indexList))],
+                $"vault: update {metadata.PublicId[4..8]}",
+                ct);
+
+            cache.Remove(CacheKeys.FileByPublicId(metadata.PublicId));
+            cache.Remove(CacheKeys.FileByLogicalId(metadata.LogicalId));
+            cache.Remove(CacheKeys.VaultFileIndex(metadata.VaultId));
+
+            return Result.Ok(metadata);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to update metadata for {PublicId}", metadata.PublicId);
+            return Result.Fail<FileMetadata>(ErrorCodes.GitHubError, "Failed to update file metadata.");
+        }
     }
 
     public async Task<Result<bool>> SoftDeleteFileAsync(string vaultId, string logicalId, CancellationToken ct)
     {
-        var file = await db.Files.FirstOrDefaultAsync(
-            f => f.VaultId == vaultId && f.LogicalId == logicalId, ct);
+        var vault = await db.Vaults.FindAsync([vaultId], ct);
+        if (vault is null)
+            return Result.Fail<bool>(ErrorCodes.NotFound, "Vault not found.");
 
-        if (file is null) return Result.Fail<bool>(ErrorCodes.NotFound, "File not found.");
+        var indexList = await ReadIndexAsync(vault, ct);
+        var entry = indexList.FirstOrDefault(f => f.LogicalId == logicalId);
+        if (entry is null)
+            return Result.Fail<bool>(ErrorCodes.NotFound, "File not found.");
 
-        file.IsDeleted = true;
-        file.DeletedAt = DateTime.UtcNow;
-        file.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync(ct);
+        // Mark deleted
+        entry.IsDeleted = true;
+        entry.DeletedAt = DateTime.UtcNow;
+        entry.UpdatedAt = DateTime.UtcNow;
 
-        cache.Remove(CacheKeys.FileByLogicalId(logicalId));
-        cache.Remove(CacheKeys.FileByPublicId(file.PublicId));
-        cache.SetNotFound(CacheKeys.FileNotFound(file.PublicId));
+        try
+        {
+            // Remove from active index; write updated individual file
+            var activeIndex = indexList.Where(f => !f.IsDeleted).ToList();
 
-        return Result.Ok(true);
+            await gitHubContent.WriteBatchAsync(
+                vault.InstallationId,
+                vault.RepoFullName,
+                vault.DefaultBranch,
+                [($"meta/{entry.PublicId}", EncryptMetadata(entry)), (IndexPath, EncryptIndex(activeIndex))],
+                $"vault: delete {entry.PublicId[4..8]}",
+                ct);
+
+            cache.Remove(CacheKeys.FileByPublicId(entry.PublicId));
+            cache.Remove(CacheKeys.FileByLogicalId(logicalId));
+            cache.Remove(CacheKeys.FileNotFound(entry.PublicId));
+            cache.Remove(CacheKeys.VaultFileIndex(vaultId));
+
+            return Result.Ok(true);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to delete metadata for logicalId {LogicalId}", logicalId);
+            return Result.Fail<bool>(ErrorCodes.GitHubError, "Failed to delete file metadata.");
+        }
     }
 
-    // ── Folders ───────────────────────────────────────────────────────────────
+    // ── Folders — SQLite (small, structural) ─────────────────────────────────
 
     public async Task<Result<FolderMetadata>> CreateFolderAsync(FolderMetadata folder, CancellationToken ct)
     {
@@ -175,55 +273,68 @@ public class MetadataService(
         return Result.Ok(folder);
     }
 
-    // ── Repo persistence (secondary, async) ──────────────────────────────────
+    // ── GitHub index helpers ──────────────────────────────────────────────────
 
-    private async Task WriteFileMetaToRepoAsync(FileMetadata metadata, CancellationToken ct)
+    private async Task<List<FileMetadata>> ReadIndexAsync(
+        GitVault.Core.Entities.VaultRepository vault, CancellationToken ct)
+    {
+        // Try cache first
+        var cacheKey = CacheKeys.VaultFileIndex(vault.VaultId);
+        if (cache.TryGet<List<FileMetadata>>(cacheKey, out var cachedList)) return cachedList!;
+
+        var file = await gitHubContent.ReadFileAsync(
+            vault.InstallationId, vault.RepoFullName, IndexPath, ct);
+
+        if (file is null) return [];
+
+        var json = DecryptGitHubFileContent(file.Content);
+        if (json is null) return [];
+
+        var list = JsonSerializer.Deserialize<List<FileMetadata>>(json, JsonOpts) ?? [];
+
+        // Cache the index with a moderate TTL
+        cache.Set(cacheKey, list, CacheTtl.VaultFileIndex);
+        return list;
+    }
+
+    private byte[] EncryptMetadata(FileMetadata metadata)
+    {
+        var json = JsonSerializer.Serialize(metadata, JsonOpts);
+        return Encoding.UTF8.GetBytes(crypto.Encrypt(json));
+    }
+
+    private byte[] EncryptIndex(List<FileMetadata> index)
+    {
+        var json = JsonSerializer.Serialize(index, JsonOpts);
+        return Encoding.UTF8.GetBytes(crypto.Encrypt(json));
+    }
+
+    private FileMetadata? DecryptMetadata(string githubBase64Content)
+    {
+        var json = DecryptGitHubFileContent(githubBase64Content);
+        if (json is null) return null;
+        return JsonSerializer.Deserialize<FileMetadata>(json, JsonOpts);
+    }
+
+    /// <summary>
+    /// GitHub returns file content double-encoded: the file bytes are returned as base64.
+    /// Our file bytes are UTF-8 of the AES-GCM base64. So the round-trip is:
+    ///   encode: encrypt(json) → encB64 → UTF8.GetBytes → stored in GitHub
+    ///   decode: GitHub returns base64(UTF8.GetBytes(encB64)) → decode → encB64 → decrypt → json
+    /// </summary>
+    private string? DecryptGitHubFileContent(string githubBase64Content)
     {
         try
         {
-            var vault = await db.Vaults.FindAsync([metadata.VaultId], ct);
-            if (vault is null) return;
-
-            var json = JsonSerializer.Serialize(new
-            {
-                logical_id = metadata.LogicalId,
-                public_id = metadata.PublicId,
-                original_name = metadata.OriginalName,
-                content_type = metadata.ContentType,
-                size_bytes = metadata.SizeBytes,
-                sha256 = metadata.Sha256,
-                folder_id = metadata.FolderId,
-                visibility = metadata.Visibility.ToString().ToLower(),
-                is_deleted = metadata.IsDeleted,
-                created_at = metadata.CreatedAt.ToString("O"),
-                updated_at = metadata.UpdatedAt.ToString("O")
-            }, new JsonSerializerOptions { WriteIndented = true });
-
-            var lid = metadata.LogicalId.Replace("-", "");
-            var metaPath = $"meta/files/{lid[..2]}/{lid[2..4]}/{metadata.LogicalId}.json";
-
-            // Write the public_id → logical_id index (tiny file, just 36 bytes)
-            var pid = metadata.PublicId;
-            var indexPath = $"meta/index/public_ids/{pid[..2]}/{pid[2..4]}/{pid}";
-
-            var files = new List<(string Path, byte[] Content)>
-            {
-                (metaPath, Encoding.UTF8.GetBytes(json)),
-                (indexPath, Encoding.UTF8.GetBytes(metadata.LogicalId))
-            };
-
-            await gitHubContent.WriteBatchAsync(
-                vault.InstallationId,
-                vault.RepoFullName,
-                vault.DefaultBranch,
-                files,
-                $"vault: store metadata for {metadata.LogicalId[..8]}",
-                ct);
+            var clean = githubBase64Content.Replace("\r", "").Replace("\n", "");
+            var bytes = Convert.FromBase64String(clean);
+            var encryptedBase64 = Encoding.UTF8.GetString(bytes);
+            return crypto.Decrypt(encryptedBase64);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to write metadata to repo for file {LogicalId}", metadata.LogicalId);
-            // Non-fatal: SQLite is the primary store. Repo is secondary.
+            logger.LogWarning(ex, "Failed to decode/decrypt GitHub file content");
+            return null;
         }
     }
 }
