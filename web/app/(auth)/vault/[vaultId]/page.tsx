@@ -36,6 +36,13 @@ export default function VaultExplorerPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [uploadVisibility, setUploadVisibility] = useState<"public" | "private">("public");
 
+  // Per-row confirmation & loading state
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
@@ -46,7 +53,7 @@ export default function VaultExplorerPage() {
           await uploadFile.mutateAsync({ file, visibility: uploadVisibility });
         }
       } catch {
-        setUploadError("Error al subir. Por favor intenta de nuevo.");
+        setUploadError("Upload failed. Please try again.");
       } finally {
         setUploading(false);
       }
@@ -70,14 +77,29 @@ export default function VaultExplorerPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleToggleVisibility = (file: FileMetadata) => {
+  const handleToggleVisibility = async (file: FileMetadata) => {
     const next = file.visibility === "public" ? "private" : "public";
-    updateVisibility.mutate({ logicalId: file.logicalId, visibility: next });
+    setTogglingId(file.logicalId);
+    setToggleError(null);
+    try {
+      await updateVisibility.mutateAsync({ logicalId: file.logicalId, visibility: next });
+    } catch {
+      setToggleError(file.logicalId);
+    } finally {
+      setTogglingId(null);
+    }
   };
 
-  const handleDelete = (logicalId: string) => {
-    if (!confirm("¿Eliminar este archivo? Esta acción no se puede deshacer.")) return;
-    deleteFile.mutate(logicalId);
+  const handleConfirmDelete = async (logicalId: string) => {
+    setDeletingId(logicalId);
+    setDeleteError(null);
+    try {
+      await deleteFile.mutateAsync(logicalId);
+      setConfirmDeleteId(null);
+    } catch {
+      setDeleteError(logicalId);
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -93,7 +115,7 @@ export default function VaultExplorerPage() {
       <div className="mb-6">
         {/* Visibility selector */}
         <div className="flex items-center gap-3 mb-2">
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Visibilidad al subir:</span>
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Upload visibility:</span>
           <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
             <button
               type="button"
@@ -104,7 +126,7 @@ export default function VaultExplorerPage() {
                   : "bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
               }`}
             >
-              Público
+              Public
             </button>
             <button
               type="button"
@@ -115,13 +137,13 @@ export default function VaultExplorerPage() {
                   : "bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
               }`}
             >
-              Privado
+              Private
             </button>
           </div>
           <span className="text-xs text-zinc-400 dark:text-zinc-500">
             {uploadVisibility === "public"
-              ? "URL pública, sin autenticación"
-              : "Solo accesible con credenciales"}
+              ? "Public URL, no authentication required"
+              : "Accessible with credentials only"}
           </span>
         </div>
 
@@ -146,7 +168,7 @@ export default function VaultExplorerPage() {
             {uploading ? (
               <>
                 <div className="h-6 w-6 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800" />
-                <span className="text-sm text-zinc-500">Subiendo…</span>
+                <span className="text-sm text-zinc-500">Uploading…</span>
               </>
             ) : (
               <>
@@ -154,9 +176,9 @@ export default function VaultExplorerPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Arrastra archivos aquí o <span className="underline">selecciona</span>
+                  Drag files here or <span className="underline">browse</span>
                 </span>
-                <span className="text-xs text-zinc-400 dark:text-zinc-500">Máximo 10 MB por archivo</span>
+                <span className="text-xs text-zinc-400 dark:text-zinc-500">Max 10 MB per file</span>
               </>
             )}
           </label>
@@ -175,13 +197,13 @@ export default function VaultExplorerPage() {
 
       {error && (
         <p className="text-sm text-red-600 dark:text-red-400 text-center py-8">
-          Error al cargar los archivos.
+          Failed to load files.
         </p>
       )}
 
       {!isLoading && !error && data?.files.length === 0 && (
         <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 py-12 text-center">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Sin archivos. Sube el primero arriba.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">No files yet. Upload your first file above.</p>
         </div>
       )}
 
@@ -190,66 +212,105 @@ export default function VaultExplorerPage() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">Nombre</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">Tipo</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden md:table-cell">Tamaño</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">Visibilidad</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">Name</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">Type</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden md:table-cell">Size</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">Visibility</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {data.files.map((file) => (
-                <tr key={file.logicalId} className="bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
-                  <td className="px-4 py-3">
-                    <a
-                      href={getPublicUrl(file.publicId, file.originalName)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline truncate max-w-xs block"
-                      title={file.originalName}
-                    >
-                      {file.originalName || "—"}
-                    </a>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">
-                    {fileTypeLabel(file.contentType)}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 hidden md:table-cell">
-                    {formatBytes(file.sizeBytes)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleToggleVisibility(file)}
-                      title="Click para cambiar visibilidad"
-                      className={`text-xs px-2 py-0.5 rounded-full transition-colors cursor-pointer ${
-                        file.visibility === "public"
-                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200"
-                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200"
-                      }`}
-                    >
-                      {file.visibility === "public" ? "público" : "privado"}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-3">
-                      <button
-                        onClick={() => handleCopy(file)}
-                        title="Copiar URL"
-                        className="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+              {data.files.map((file) => {
+                const isConfirming = confirmDeleteId === file.logicalId;
+                const isDeleting = deletingId === file.logicalId;
+                const isToggling = togglingId === file.logicalId;
+
+                return (
+                  <tr key={file.logicalId} className="bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
+                    <td className="px-4 py-3">
+                      <a
+                        href={getPublicUrl(file.publicId, file.originalName)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-zinc-900 dark:text-zinc-100 hover:underline truncate max-w-xs block"
+                        title={file.originalName}
                       >
-                        {copiedId === file.logicalId ? "¡Copiado!" : "Copiar URL"}
-                      </button>
+                        {file.originalName || "—"}
+                      </a>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">
+                      {fileTypeLabel(file.contentType)}
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 hidden md:table-cell">
+                      {formatBytes(file.sizeBytes)}
+                    </td>
+                    <td className="px-4 py-3">
                       <button
-                        onClick={() => handleDelete(file.logicalId)}
-                        title="Eliminar"
-                        className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                        onClick={() => !isToggling && handleToggleVisibility(file)}
+                        disabled={isToggling}
+                        title="Click to toggle visibility"
+                        className={`text-xs px-2 py-0.5 rounded-full transition-colors cursor-pointer disabled:opacity-50 ${
+                          file.visibility === "public"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200"
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200"
+                        }`}
                       >
-                        Eliminar
+                        {isToggling ? "…" : file.visibility === "public" ? "public" : "private"}
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      {toggleError === file.logicalId && (
+                        <span className="ml-1 text-xs text-red-500">Failed</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {isConfirming ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">Delete this file?</span>
+                          <button
+                            onClick={() => handleConfirmDelete(file.logicalId)}
+                            disabled={isDeleting}
+                            className="text-xs font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 transition-colors"
+                          >
+                            {isDeleting ? (
+                              <span className="flex items-center gap-1">
+                                <span className="h-3 w-3 inline-block animate-spin rounded-full border-2 border-red-300 border-t-red-600" />
+                                Deleting…
+                              </span>
+                            ) : "Yes, delete"}
+                          </button>
+                          {!isDeleting && (
+                            <button
+                              onClick={() => { setConfirmDeleteId(null); setDeleteError(null); }}
+                              className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          {deleteError === file.logicalId && (
+                            <span className="text-xs text-red-500">Failed</span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-end gap-3">
+                          <button
+                            onClick={() => handleCopy(file)}
+                            title="Copy URL"
+                            className="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+                          >
+                            {copiedId === file.logicalId ? "Copied!" : "Copy URL"}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(file.logicalId)}
+                            title="Delete"
+                            className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
