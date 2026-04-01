@@ -13,11 +13,10 @@ RUN dotnet publish "src/GitVault.Api/GitVault.Api.csproj" \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# Create non-root user for security
-RUN adduser --disabled-password --gecos "" appuser
-USER appuser
+# .NET 8+ images include a built-in non-root 'app' user
+COPY --from=build --chown=app:app /app/publish .
 
-COPY --from=build --chown=appuser:appuser /app/publish .
+USER app
 
 ENV ASPNETCORE_URLS=http://+:5000
 ENV ASPNETCORE_ENVIRONMENT=Production
