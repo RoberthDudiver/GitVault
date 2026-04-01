@@ -26,7 +26,17 @@ public class GitHubContentService(
             var file = contents.FirstOrDefault();
             if (file is null) return null;
 
-            return new GitHubFile(file.Path, file.Content, file.Sha);
+            // GitHub Contents API returns empty Content for files > 1 MB.
+            // Fall back to the Git Blobs API which supports files up to 100 MB.
+            var content = file.Content;
+            if (string.IsNullOrEmpty(content))
+            {
+                logger.LogDebug("File {Path} > 1 MB, fetching via Git Blobs API (git sha: {Sha})", path, file.Sha);
+                var blob = await client.Git.Blob.Get(owner, repo, file.Sha).WaitAsync(ct);
+                content = blob.Content;
+            }
+
+            return new GitHubFile(file.Path, content, file.Sha);
         }
         catch (NotFoundException)
         {
