@@ -13,6 +13,7 @@ import {
 import { useVault } from "@/hooks/useVaults";
 import { auth } from "@/lib/firebase";
 import { servingUrl, thumbUrl } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -359,18 +360,24 @@ function GalleryCard({
   onPreview,
   onCopyUrl,
   onToggleVisibility,
-  onDelete,
+  onConfirmDelete,
+  isConfirming,
+  isDeleting,
   copiedId,
 }: {
   file: FileMetadata;
   onPreview: () => void;
   onCopyUrl: () => void;
   onToggleVisibility: () => void;
-  onDelete: () => void;
+  onConfirmDelete: (confirm: boolean) => void;
+  isConfirming: boolean;
+  isDeleting: boolean;
   copiedId: string | null;
 }) {
-  // Use thumbnail endpoint for images (public or private — thumb auth handled server-side)
+  const { t } = useI18n();
   const thumb = isImage(file.contentType) ? thumbUrl(file.publicId) : null;
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   return (
     <div className="group relative aspect-square rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:border-zinc-400 dark:hover:border-zinc-600 transition-all hover:shadow-lg">
@@ -381,17 +388,23 @@ function GalleryCard({
         className="absolute inset-0 w-full h-full focus:outline-none"
         aria-label={`Preview ${file.originalName}`}
       >
-        {thumb ? (
-          <img
-            src={thumb}
-            alt={file.originalName}
-            className="h-full w-full object-cover transition-transform group-hover:scale-105"
-            loading="lazy"
-            onError={(e) => {
-              // If thumb fails (non-image or error), hide img and show icon
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
-          />
+        {thumb && !imgError ? (
+          <>
+            {/* Loading skeleton */}
+            {!imgLoaded && (
+              <div className="absolute inset-0 bg-zinc-200 dark:bg-zinc-800 animate-pulse flex items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 dark:border-zinc-600 border-t-zinc-500 dark:border-t-zinc-400" />
+              </div>
+            )}
+            <img
+              src={thumb}
+              alt={file.originalName}
+              className={`h-full w-full object-cover transition-all group-hover:scale-105 ${imgLoaded ? "opacity-100" : "opacity-0"}`}
+              loading="lazy"
+              onLoad={() => setImgLoaded(true)}
+              onError={() => { setImgError(true); setImgLoaded(true); }}
+            />
+          </>
         ) : (
           <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-zinc-400 dark:text-zinc-600">
             <TypeIcon contentType={file.contentType} size={36} />
@@ -400,48 +413,66 @@ function GalleryCard({
         )}
       </button>
 
-      {/* Hover overlay with filename + action buttons */}
-      <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-200 bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-6 pb-2 px-2">
-        {/* Filename */}
-        <p className="text-white text-xs font-medium truncate mb-1.5">{file.originalName}</p>
-
-        {/* Action row */}
-        <div className="flex items-center gap-1">
-          {/* Visibility toggle */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
-            title={file.visibility === "public" ? "Make private" : "Make public"}
-            className={`flex-1 text-center text-xs py-1 rounded-md transition-colors ${
-              file.visibility === "public"
-                ? "bg-green-500/30 hover:bg-green-500/50 text-green-300"
-                : "bg-zinc-500/30 hover:bg-zinc-500/50 text-zinc-300"
-            }`}
-          >
-            {file.visibility === "public" ? "Public" : "Private"}
-          </button>
-
-          {/* Copy URL */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onCopyUrl(); }}
-            title="Copy URL"
-            className="flex-1 text-center text-xs py-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors"
-          >
-            {copiedId === file.logicalId ? "✓" : "Copy"}
-          </button>
-
-          {/* Delete */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            title="Delete"
-            className="flex-1 text-center text-xs py-1 rounded-md bg-red-500/30 hover:bg-red-500/50 text-red-300 transition-colors"
-          >
-            Delete
-          </button>
+      {/* Delete confirmation overlay — shown ON the card */}
+      {isConfirming && (
+        <div className="absolute inset-0 z-20 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3 p-3">
+          <p className="text-white text-xs font-medium text-center">{t("file.deleteConfirm")}</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); onConfirmDelete(true); }}
+              disabled={isDeleting}
+              className="rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 transition-colors"
+            >
+              {isDeleting && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
+              {isDeleting ? t("file.deleting") : t("file.yesDelete")}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onConfirmDelete(false); }}
+              disabled={isDeleting}
+              className="rounded-lg border border-zinc-500 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-50 transition-colors"
+            >
+              {t("file.cancel")}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Hover overlay with filename + action buttons */}
+      {!isConfirming && (
+        <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-200 bg-gradient-to-t from-black/90 via-black/70 to-transparent pt-6 pb-2 px-2">
+          <p className="text-white text-xs font-medium truncate mb-1.5">{file.originalName}</p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggleVisibility(); }}
+              title={file.visibility === "public" ? t("file.makePrivate") : t("file.makePublic")}
+              className={`flex-1 text-center text-xs py-1 rounded-md transition-colors ${
+                file.visibility === "public"
+                  ? "bg-green-500/30 hover:bg-green-500/50 text-green-300"
+                  : "bg-zinc-500/30 hover:bg-zinc-500/50 text-zinc-300"
+              }`}
+            >
+              {file.visibility === "public" ? t("vault.public") : t("vault.private")}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onCopyUrl(); }}
+              title={t("file.copyUrl")}
+              className="flex-1 text-center text-xs py-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors"
+            >
+              {copiedId === file.logicalId ? "✓" : "Copy"}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onConfirmDelete(true); }}
+              title={t("file.delete")}
+              className="flex-1 text-center text-xs py-1 rounded-md bg-red-500/30 hover:bg-red-500/50 text-red-300 transition-colors"
+            >
+              {t("file.delete")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Visibility badge (top-right, always visible) */}
-      <div className={`absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 text-xs font-medium ${
+      <div className={`absolute top-1.5 right-1.5 z-10 rounded-full px-1.5 py-0.5 text-xs font-medium ${
         file.visibility === "private"
           ? "bg-black/60 text-white"
           : "bg-green-500/80 text-white"
@@ -542,13 +573,14 @@ export default function VaultExplorerPage() {
     }
   };
 
+  const { t } = useI18n();
   const files = data?.files ?? [];
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold">{vault?.repoFullName ?? "Vault Explorer"}</h1>
+          <h1 className="text-xl font-semibold">{vault?.repoFullName ?? t("vault.explorer")}</h1>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{vaultId}</p>
         </div>
         {/* View toggle */}
@@ -577,19 +609,19 @@ export default function VaultExplorerPage() {
       {/* Upload area */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
-          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Upload as:</span>
+          <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{t("vault.uploadAs")}</span>
           <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
             <button type="button" onClick={() => setUploadVisibility("public")}
               className={`px-3 py-1 text-xs font-medium transition-colors ${uploadVisibility === "public" ? "bg-green-600 text-white" : "bg-white dark:bg-zinc-900 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
-              Public
+              {t("vault.public")}
             </button>
             <button type="button" onClick={() => setUploadVisibility("private")}
               className={`px-3 py-1 text-xs font-medium transition-colors border-l border-zinc-200 dark:border-zinc-700 ${uploadVisibility === "private" ? "bg-zinc-700 text-white" : "bg-white dark:bg-zinc-900 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}>
-              Private
+              {t("vault.private")}
             </button>
           </div>
           <span className="text-xs text-zinc-400 dark:text-zinc-500">
-            {uploadVisibility === "public" ? "Direct public URL, no auth needed" : "Accessible with credentials only"}
+            {uploadVisibility === "public" ? t("vault.publicDesc") : t("vault.privateDesc")}
           </span>
         </div>
 
@@ -604,7 +636,7 @@ export default function VaultExplorerPage() {
             {uploading ? (
               <>
                 <div className="h-6 w-6 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800" />
-                <span className="text-sm text-zinc-500">Uploading…</span>
+                <span className="text-sm text-zinc-500">{t("vault.uploading")}</span>
               </>
             ) : (
               <>
@@ -612,9 +644,9 @@ export default function VaultExplorerPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
                 <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Drop files here or <span className="underline">browse</span>
+                  {t("vault.dropFiles")} <span className="underline">{t("vault.browse")}</span>
                 </span>
-                <span className="text-xs text-zinc-400 dark:text-zinc-500">Images · Documents · Audio · Video · Any file up to 10 MB</span>
+                <span className="text-xs text-zinc-400 dark:text-zinc-500">{t("vault.fileLimits")}</span>
               </>
             )}
           </label>
@@ -629,11 +661,11 @@ export default function VaultExplorerPage() {
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400 text-center py-8">Failed to load files.</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400 text-center py-8">{t("vault.loadFailed")}</p>}
 
       {!isLoading && !error && files.length === 0 && (
         <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 py-12 text-center">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">No files yet. Upload your first one above.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">{t("vault.noFiles")}</p>
         </div>
       )}
 
@@ -645,34 +677,22 @@ export default function VaultExplorerPage() {
               key={file.logicalId}
               file={file}
               copiedId={copiedId}
+              isConfirming={confirmDeleteId === file.logicalId}
+              isDeleting={deletingId === file.logicalId}
               onPreview={() => setPreviewFile(file)}
               onCopyUrl={() => handleCopy(file)}
               onToggleVisibility={() => handleToggleVisibility(file)}
-              onDelete={() => setConfirmDeleteId(file.logicalId)}
+              onConfirmDelete={(confirm) => {
+                if (confirm && confirmDeleteId === file.logicalId) {
+                  handleConfirmDelete(file.logicalId);
+                } else if (confirm) {
+                  setConfirmDeleteId(file.logicalId);
+                } else {
+                  setConfirmDeleteId(null);
+                }
+              }}
             />
           ))}
-        </div>
-      )}
-
-      {/* Inline delete confirmation for gallery view */}
-      {confirmDeleteId && viewMode === "gallery" && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-xl bg-zinc-900 dark:bg-zinc-800 border border-zinc-700 px-5 py-3 shadow-2xl">
-          <span className="text-sm text-white">Delete this file?</span>
-          <button
-            onClick={() => handleConfirmDelete(confirmDeleteId)}
-            disabled={!!deletingId}
-            className="rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 px-3 py-1.5 text-xs font-medium text-white flex items-center gap-1.5 transition-colors"
-          >
-            {deletingId && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-            {deletingId ? "Deleting…" : "Yes, delete"}
-          </button>
-          <button
-            onClick={() => setConfirmDeleteId(null)}
-            disabled={!!deletingId}
-            className="rounded-lg border border-zinc-600 px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-50 transition-colors"
-          >
-            Cancel
-          </button>
         </div>
       )}
 
