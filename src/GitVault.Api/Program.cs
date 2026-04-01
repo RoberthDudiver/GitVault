@@ -62,9 +62,8 @@ try
     builder.Services.AddDbContext<GitVaultDbContext>(options =>
         options.UseSqlite($"Data Source={dbPath}"));
 
-    // ── Caching ───────────────────────────────────────────────────────────────
-    builder.Services.AddMemoryCache();
-    builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
+    // ── Caching (Redis si está configurado, IMemoryCache si no) ──────────────
+    builder.Services.AddGitVaultCache(builder.Configuration);
 
     // ── GitHub ────────────────────────────────────────────────────────────────
     builder.Services.AddSingleton<GitHubAppAuthenticator>();
