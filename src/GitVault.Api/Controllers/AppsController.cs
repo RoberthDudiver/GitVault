@@ -6,7 +6,7 @@ namespace GitVault.Api.Controllers;
 
 public class AppsController(IAppService appService) : BaseApiController
 {
-    /// <summary>Lista todas las aplicaciones (API clients) del usuario.</summary>
+    /// <summary>Lists all applications (API clients) for the authenticated user.</summary>
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
     {
@@ -14,8 +14,8 @@ public class AppsController(IAppService appService) : BaseApiController
         return Ok(new { apps = apps.Select(MapToResponse), count = apps.Count });
     }
 
-    /// <summary>Crea una nueva aplicación con acceso API a uno o varios vaults.</summary>
-    /// <remarks>Scopes disponibles: `files:read`, `files:write`. Al crear, se generan las credenciales iniciales.</remarks>
+    /// <summary>Creates a new application with API access to one or more vaults.</summary>
+    /// <remarks>Available scopes: `files:read`, `files:write`. Initial credentials are generated upon creation.</remarks>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateAppRequest request, CancellationToken ct)
     {
@@ -32,7 +32,7 @@ public class AppsController(IAppService appService) : BaseApiController
         return FromResult(result);
     }
 
-    /// <summary>Obtiene los detalles de una aplicación por su ID.</summary>
+    /// <summary>Gets application details by ID.</summary>
     [HttpGet("{appId}")]
     public async Task<IActionResult> Get(string appId, CancellationToken ct)
     {
@@ -41,7 +41,7 @@ public class AppsController(IAppService appService) : BaseApiController
         return Ok(MapToResponse(app));
     }
 
-    /// <summary>Desactiva una aplicación. Sus credenciales dejan de funcionar inmediatamente.</summary>
+    /// <summary>Deactivates an application. Its credentials stop working immediately.</summary>
     [HttpDelete("{appId}")]
     public async Task<IActionResult> Deactivate(string appId, CancellationToken ct)
     {
@@ -55,7 +55,7 @@ public class AppsController(IAppService appService) : BaseApiController
 
     // ── Credentials ───────────────────────────────────────────────────────────
 
-    /// <summary>Lista las credenciales (API keys) de una aplicación. El `api_secret` nunca se devuelve aquí.</summary>
+    /// <summary>Lists credentials (API keys) for an application. The `api_secret` is never returned here.</summary>
     [HttpGet("{appId}/credentials")]
     public async Task<IActionResult> ListCredentials(string appId, CancellationToken ct)
     {
@@ -76,16 +76,17 @@ public class AppsController(IAppService appService) : BaseApiController
         });
     }
 
-    /// <summary>Genera un nuevo par de credenciales (api_key + api_secret).</summary>
-    /// <remarks>⚠️ El `api_secret` se muestra UNA SOLA VEZ en la respuesta. Guárdalo inmediatamente.</remarks>
+    /// <summary>Generates a new credential pair (api_key + api_secret).</summary>
+    /// <remarks>⚠️ The `api_secret` is shown ONLY ONCE in the response. Store it immediately.</remarks>
     [HttpPost("{appId}/credentials")]
     public async Task<IActionResult> CreateCredential(
         string appId,
-        [FromBody] CreateCredentialRequest request,
+        [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)]
+        CreateCredentialRequest? request,
         CancellationToken ct)
     {
         var result = await appService.CreateCredentialAsync(
-            appId, CurrentUserId, request.Description, request.ExpiresAt, ct);
+            appId, CurrentUserId, request?.Description, request?.ExpiresAt, ct);
 
         if (!result.IsSuccess) return FromResult(result);
 
@@ -101,7 +102,7 @@ public class AppsController(IAppService appService) : BaseApiController
         });
     }
 
-    /// <summary>Revoca una credencial. Las peticiones que usen esa API key fallarán con 401 inmediatamente.</summary>
+    /// <summary>Revokes a credential. Requests using that API key will immediately fail with 401.</summary>
     [HttpDelete("{appId}/credentials/{credentialId}")]
     public async Task<IActionResult> RevokeCredential(
         string appId, string credentialId, CancellationToken ct)

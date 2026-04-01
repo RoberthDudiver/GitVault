@@ -15,8 +15,8 @@ public class FilesController(
 {
     private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
 
-    /// <summary>Lista los archivos de un vault con paginación opcional.</summary>
-    /// <remarks>Soporta filtro por carpeta (`folderId`). Máximo 100 resultados por página.</remarks>
+    /// <summary>Lists all files in a vault with optional pagination.</summary>
+    /// <remarks>Supports filtering by folder (`folderId`). Maximum 100 results per page.</remarks>
     [HttpGet]
     public async Task<IActionResult> List(
         string vaultId,
@@ -34,8 +34,8 @@ public class FilesController(
         return Ok(new { files = files.Select(MapToResponse), total, page, page_size = pageSize });
     }
 
-    /// <summary>Sube un archivo al vault (máx 10 MB).</summary>
-    /// <remarks>El archivo se almacena en el repo de GitHub del vault. Devuelve la metadata con `publicId` para construir la URL pública.</remarks>
+    /// <summary>Uploads a file to the vault (max 10 MB).</summary>
+    /// <remarks>The file is stored in the vault's GitHub repository. Returns metadata with `publicId` to build the public URL.</remarks>
     [HttpPost]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> Upload(
@@ -79,8 +79,8 @@ public class FilesController(
         return Ok(MapToResponse(metaResult.Value!));
     }
 
-    /// <summary>Sube hasta 20 archivos en una sola petición (máx 100 MB en total).</summary>
-    /// <remarks>Retorna `uploaded` con los exitosos y `failed` con los que fallaron, sin abortar el lote completo.</remarks>
+    /// <summary>Uploads up to 20 files in a single request (max 100 MB total).</summary>
+    /// <remarks>Returns `uploaded` with successful items and `failed` with those that failed, without aborting the entire batch.</remarks>
     [HttpPost("batch")]
     [RequestSizeLimit(100 * 1024 * 1024)]
     public async Task<IActionResult> UploadBatch(
@@ -133,7 +133,7 @@ public class FilesController(
         return Ok(new { uploaded, failed });
     }
 
-    /// <summary>Obtiene la metadata de un archivo por su ID lógico.</summary>
+    /// <summary>Gets file metadata by its logical ID.</summary>
     [HttpGet("{logicalId}")]
     public async Task<IActionResult> GetMeta(string vaultId, string logicalId, CancellationToken ct)
     {
@@ -145,7 +145,7 @@ public class FilesController(
         return Ok(MapToResponse(file));
     }
 
-    /// <summary>Actualiza la metadata de un archivo: visibilidad, carpeta o nombre.</summary>
+    /// <summary>Updates file metadata: visibility, folder, or name.</summary>
     [HttpPatch("{logicalId}")]
     public async Task<IActionResult> Update(
         string vaultId,
@@ -171,8 +171,8 @@ public class FilesController(
         return FromResult(result);
     }
 
-    /// <summary>Elimina (soft-delete) un archivo del vault.</summary>
-    /// <remarks>El archivo deja de ser accesible vía URL pública. El blob en GitHub se elimina en el siguiente ciclo de limpieza.</remarks>
+    /// <summary>Soft-deletes a file from the vault.</summary>
+    /// <remarks>The file is no longer accessible via its public URL. The GitHub blob is removed in the next cleanup cycle.</remarks>
     [HttpDelete("{logicalId}")]
     public async Task<IActionResult> Delete(string vaultId, string logicalId, CancellationToken ct)
     {

@@ -59,7 +59,7 @@ public class AuthController(
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
 
-        var frontendUrl = config["FRONTEND_URL"] ?? "https://gitvault.dudiver.net";
+        var frontendUrl = config["FRONTEND_URL"] ?? "http://localhost:3000";
         return Redirect($"{frontendUrl}/onboarding/select-repo?installation_id={installation_id}");
     }
 

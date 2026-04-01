@@ -1,6 +1,0 @@
-ID,Title,Type,Description
-bmad-master,BMAD Master,agent,Orquestador maestro de la metodología BMAD
-architect,Architect,agent,Diseño de arquitectura y decisiones técnicas
-analyst,Analyst,agent,Análisis de requisitos y product brief
-developer,Developer,agent,Implementación de historias y código
-brainstorming,Brainstorming,workflow,Sesiones de ideación interactiva

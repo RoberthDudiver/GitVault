@@ -154,11 +154,20 @@ public class StorageService(
         var path = BlobPath(sha256);
         var file = await gitHubContent.ReadFileAsync(vault.InstallationId, vault.RepoFullName, path, ct);
 
-        if (file is null)
+        if (file is null || string.IsNullOrEmpty(file.Content))
             return Result.Fail<Stream>(ErrorCodes.NotFound, "Blob not found in repository.");
 
-        var cleanContent = file.Content.Replace("\r", "").Replace("\n", "");
-        var bytes = Convert.FromBase64String(cleanContent);
+        byte[] bytes;
+        try
+        {
+            var cleanContent = file.Content.Replace("\r", "").Replace("\n", "");
+            bytes = Convert.FromBase64String(cleanContent);
+        }
+        catch (FormatException ex)
+        {
+            logger.LogError(ex, "Invalid base64 content for blob sha={Sha256} in vault {VaultId}", sha256, vaultId);
+            return Result.Fail<Stream>(ErrorCodes.GitHubError, "Blob content is corrupted.");
+        }
 
         // Legacy double-encoding fix: old uploads accidentally stored base64 text instead of
         // raw bytes (Octokit CreateFileRequest was called with convertContentToBase64=true on

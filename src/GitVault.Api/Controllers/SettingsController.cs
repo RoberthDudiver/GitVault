@@ -18,7 +18,7 @@ public class SettingsController(
 {
     private string UserId => User.UserId();
 
-    /// <summary>Retorna la configuración del usuario: si tiene GitHub App instalada y si tiene PAT configurado.</summary>
+    /// <summary>Returns user settings: whether they have the GitHub App installed and a PAT configured.</summary>
     [HttpGet]
     public async Task<IActionResult> GetSettings(CancellationToken ct)
     {
@@ -31,8 +31,8 @@ public class SettingsController(
         });
     }
 
-    /// <summary>Guarda o reemplaza el Personal Access Token de GitHub del usuario.</summary>
-    /// <remarks>El token se encripta con AES-256-GCM antes de persistirse. Nunca se devuelve en texto plano.</remarks>
+    /// <summary>Saves or replaces the user's GitHub Personal Access Token.</summary>
+    /// <remarks>The token is encrypted with AES-256-GCM before being persisted. Never returned in plain text.</remarks>
     [HttpPut("github-token")]
     public async Task<IActionResult> SetGitHubToken(
         [FromBody] SetGitHubTokenRequest req,
@@ -51,7 +51,7 @@ public class SettingsController(
         return Ok(new { has_github_token = true });
     }
 
-    /// <summary>Elimina el Personal Access Token de GitHub guardado.</summary>
+    /// <summary>Removes the saved GitHub Personal Access Token.</summary>
     [HttpDelete("github-token")]
     public async Task<IActionResult> RemoveGitHubToken(CancellationToken ct)
     {

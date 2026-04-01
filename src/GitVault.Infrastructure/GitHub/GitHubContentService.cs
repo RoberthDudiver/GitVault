@@ -34,6 +34,12 @@ public class GitHubContentService(
                 logger.LogDebug("File {Path} > 1 MB, fetching via Git Blobs API (git sha: {Sha})", path, file.Sha);
                 var blob = await client.Git.Blob.Get(owner, repo, file.Sha).WaitAsync(ct);
                 content = blob.Content;
+                // blob.Encoding == "none" means file exceeds 100 MB — not supported
+                if (string.IsNullOrEmpty(content))
+                {
+                    logger.LogWarning("Blob {Sha} returned empty content (may exceed 100 MB limit)", file.Sha);
+                    return null;
+                }
             }
 
             return new GitHubFile(file.Path, content, file.Sha);

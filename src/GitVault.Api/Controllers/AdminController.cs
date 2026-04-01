@@ -23,7 +23,7 @@ public class AdminController(
         return header == secret;
     }
 
-    /// <summary>Lista todos los usuarios registrados. Requiere header X-Admin-Secret.</summary>
+    /// <summary>Lists all registered users. Requires the X-Admin-Secret header.</summary>
     [HttpGet("users")]
     public async Task<IActionResult> ListUsers(CancellationToken ct)
     {
@@ -49,8 +49,8 @@ public class AdminController(
         return Ok(new { users, count = users.Count });
     }
 
-    /// <summary>Elimina un usuario de la base de datos y de Firebase Auth.</summary>
-    /// <remarks>⚠️ Irreversible. Elimina en cascada vaults, archivos, apps y credenciales.</remarks>
+    /// <summary>Permanently deletes a user from the database and Firebase Auth.</summary>
+    /// <remarks>⚠️ Irreversible. Cascade-deletes all vaults, files, apps, and credentials.</remarks>
     [HttpDelete("users/{userId}")]
     public async Task<IActionResult> DeleteUser(string userId, CancellationToken ct)
     {
@@ -77,7 +77,7 @@ public class AdminController(
         return Ok(new { deleted = true, userId });
     }
 
-    /// <summary>Bloquea un usuario. Sus tokens de Firebase siguen siendo válidos pero la API les devolverá 401.</summary>
+    /// <summary>Blocks a user. Their Firebase tokens remain valid but the API will return 401.</summary>
     [HttpPost("users/{userId}/block")]
     public async Task<IActionResult> BlockUser(string userId, CancellationToken ct)
     {
@@ -94,7 +94,7 @@ public class AdminController(
         return Ok(new { blocked = true, userId });
     }
 
-    /// <summary>Desbloquea un usuario previamente bloqueado.</summary>
+    /// <summary>Unblocks a previously blocked user.</summary>
     [HttpPost("users/{userId}/unblock")]
     public async Task<IActionResult> UnblockUser(string userId, CancellationToken ct)
     {

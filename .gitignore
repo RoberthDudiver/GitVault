@@ -40,7 +40,10 @@ yarn-error.log*
 firebase-adminsdk*.json
 github-app-private-key.pem
 secret.txt
+*.txt
 .secrets/
+logo1.png
+logoblanco.png
 
 # ─── OS ──────────────────────────────────────────────────────────────────────
 .DS_Store
@@ -58,3 +61,5 @@ docker-compose.override.yml
 gitvault-config.txt
 # Server-specific production config — use infra/docker-compose.prod.example.yml as template
 infra/docker-compose.gitvault.yml
+_bmad/
+_bmad-output/

@@ -9,11 +9,11 @@ namespace GitVault.Api.Controllers;
 
 /// <summary>
 /// Receives GitHub App webhook events.
-/// Webhook URL: http://api.gitvault.dudiver.net/webhooks/github
+/// Webhook URL: https://your-api-domain.com/webhooks/github
 ///
 /// Events handled:
-///   - installation         → guardar/actualizar installation_id vinculado al usuario
-///   - installation_repositories → actualizar lista de repos disponibles
+///   - installation                → save/update installation_id linked to the user
+///   - installation_repositories   → update available repository list
 /// </summary>
 [ApiController]
 [Route("webhooks")]

@@ -42,11 +42,11 @@ jobs:
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ github.sha }}
           build-args: |
-            NEXT_PUBLIC_API_URL=https://api.gitvault.dudiver.net
+            NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_FIREBASE_API_KEY=${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
             NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
             NEXT_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-            NEXT_PUBLIC_GITHUB_APP_NAME=roberthdudiver-gitvault
+            NEXT_PUBLIC_GITHUB_APP_NAME=${{ secrets.NEXT_PUBLIC_GITHUB_APP_NAME }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

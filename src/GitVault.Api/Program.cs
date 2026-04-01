@@ -148,6 +148,13 @@ try
     }
 
     // ── Middleware pipeline ───────────────────────────────────────────────────
+    app.UseExceptionHandler(errApp => errApp.Run(async ctx =>
+    {
+        ctx.Response.StatusCode = 500;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsJsonAsync(new { error = "INTERNAL_ERROR", message = "An unexpected error occurred." });
+    }));
+
     app.UseSerilogRequestLogging(opts =>
         opts.MessageTemplate = "HTTP {RequestMethod} {RequestPath} → {StatusCode} ({Elapsed:0.0}ms)");
 

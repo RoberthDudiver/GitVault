@@ -9,7 +9,7 @@ public class FoldersController(
     IMetadataService metadata,
     IVaultService vaultService) : BaseApiController
 {
-    /// <summary>Lista las carpetas de un vault, opcionalmente filtradas por carpeta padre.</summary>
+    /// <summary>Lists all folders in a vault, optionally filtered by parent folder.</summary>
     [HttpGet]
     public async Task<IActionResult> List(
         string vaultId,
@@ -22,7 +22,7 @@ public class FoldersController(
         return Ok(new { folders = folders.Select(MapToResponse), total = folders.Count });
     }
 
-    /// <summary>Crea una carpeta dentro de un vault.</summary>
+    /// <summary>Creates a folder inside a vault.</summary>
     [HttpPost]
     public async Task<IActionResult> Create(
         string vaultId,
@@ -54,7 +54,7 @@ public class FoldersController(
         return FromResult(result);
     }
 
-    /// <summary>Obtiene los detalles de una carpeta por su ID.</summary>
+    /// <summary>Gets folder details by ID.</summary>
     [HttpGet("{folderId}")]
     public async Task<IActionResult> Get(string vaultId, string folderId, CancellationToken ct)
     {

@@ -6,7 +6,7 @@ namespace GitVault.Api.Controllers;
 
 public class VaultsController(IVaultService vaultService) : BaseApiController
 {
-    /// <summary>Lista todos los vaults del usuario autenticado.</summary>
+    /// <summary>Lists all vaults for the authenticated user.</summary>
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
     {
@@ -14,8 +14,8 @@ public class VaultsController(IVaultService vaultService) : BaseApiController
         return Ok(new { vaults, count = vaults.Count });
     }
 
-    /// <summary>Lista los repositorios de GitHub disponibles para conectar como vault.</summary>
-    /// <remarks>Requiere que el usuario tenga la GitHub App instalada. Si no hay instalación, retorna 400 con error GITHUB_NOT_CONNECTED.</remarks>
+    /// <summary>Lists available GitHub repositories that can be connected as a vault.</summary>
+    /// <remarks>Requires the user to have the GitHub App installed. If not installed, returns 400 with GITHUB_NOT_CONNECTED error.</remarks>
     [HttpGet("available-repos")]
     public async Task<IActionResult> ListAvailableRepos(CancellationToken ct)
     {
@@ -23,11 +23,11 @@ public class VaultsController(IVaultService vaultService) : BaseApiController
         return FromResult(result);
     }
 
-    /// <summary>Conecta un repositorio existente como vault o crea uno nuevo.</summary>
+    /// <summary>Connects an existing repository as a vault or creates a new one.</summary>
     /// <remarks>
-    /// Si `create_if_not_exists` es true, crea el repo en GitHub y lo inicializa.
-    /// Si es false, conecta un repo ya existente.
-    /// Requiere GitHub App instalada o Personal Access Token configurado.
+    /// If `create_if_not_exists` is true, creates the repository on GitHub and initializes it.
+    /// If false, connects an already existing repository.
+    /// Requires GitHub App installed or a Personal Access Token configured.
     /// </remarks>
     [HttpPost]
     public async Task<IActionResult> Connect([FromBody] ConnectVaultRequest request, CancellationToken ct)
@@ -42,7 +42,7 @@ public class VaultsController(IVaultService vaultService) : BaseApiController
         return FromResult(result);
     }
 
-    /// <summary>Obtiene los detalles de un vault por su ID.</summary>
+    /// <summary>Gets vault details by ID.</summary>
     [HttpGet("{vaultId}")]
     public async Task<IActionResult> Get(string vaultId, CancellationToken ct)
     {
