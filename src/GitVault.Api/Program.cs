@@ -10,6 +10,7 @@ using GitVault.Infrastructure.Services;
 using Google.Apis.Auth.OAuth2;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using GitVault.Api.OpenApi;
 using Scalar.AspNetCore;
 using Serilog;
 using System.Threading.RateLimiting;
@@ -125,7 +126,11 @@ try
 
     // ── Controllers + OpenAPI ─────────────────────────────────────────────────
     builder.Services.AddControllers();
-    builder.Services.AddOpenApi();
+    builder.Services.AddOpenApi(options =>
+    {
+        options.AddOperationTransformer<XmlDocOperationTransformer>();
+    });
+    builder.Services.AddSingleton<XmlDocOperationTransformer>();
 
     // ── Health checks ─────────────────────────────────────────────────────────
     builder.Services.AddHealthChecks()

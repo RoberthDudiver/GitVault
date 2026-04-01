@@ -6,6 +6,7 @@ namespace GitVault.Api.Controllers;
 
 public class VaultsController(IVaultService vaultService) : BaseApiController
 {
+    /// <summary>Lista todos los vaults del usuario autenticado.</summary>
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
     {
@@ -13,6 +14,8 @@ public class VaultsController(IVaultService vaultService) : BaseApiController
         return Ok(new { vaults, count = vaults.Count });
     }
 
+    /// <summary>Lista los repositorios de GitHub disponibles para conectar como vault.</summary>
+    /// <remarks>Requiere que el usuario tenga la GitHub App instalada. Si no hay instalación, retorna 400 con error GITHUB_NOT_CONNECTED.</remarks>
     [HttpGet("available-repos")]
     public async Task<IActionResult> ListAvailableRepos(CancellationToken ct)
     {
@@ -20,6 +23,12 @@ public class VaultsController(IVaultService vaultService) : BaseApiController
         return FromResult(result);
     }
 
+    /// <summary>Conecta un repositorio existente como vault o crea uno nuevo.</summary>
+    /// <remarks>
+    /// Si `create_if_not_exists` es true, crea el repo en GitHub y lo inicializa.
+    /// Si es false, conecta un repo ya existente.
+    /// Requiere GitHub App instalada o Personal Access Token configurado.
+    /// </remarks>
     [HttpPost]
     public async Task<IActionResult> Connect([FromBody] ConnectVaultRequest request, CancellationToken ct)
     {
@@ -33,6 +42,7 @@ public class VaultsController(IVaultService vaultService) : BaseApiController
         return FromResult(result);
     }
 
+    /// <summary>Obtiene los detalles de un vault por su ID.</summary>
     [HttpGet("{vaultId}")]
     public async Task<IActionResult> Get(string vaultId, CancellationToken ct)
     {

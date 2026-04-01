@@ -6,6 +6,7 @@ namespace GitVault.Api.Controllers;
 
 public class AppsController(IAppService appService) : BaseApiController
 {
+    /// <summary>Lista todas las aplicaciones (API clients) del usuario.</summary>
     [HttpGet]
     public async Task<IActionResult> List(CancellationToken ct)
     {
@@ -13,6 +14,8 @@ public class AppsController(IAppService appService) : BaseApiController
         return Ok(new { apps = apps.Select(MapToResponse), count = apps.Count });
     }
 
+    /// <summary>Crea una nueva aplicación con acceso API a uno o varios vaults.</summary>
+    /// <remarks>Scopes disponibles: `files:read`, `files:write`. Al crear, se generan las credenciales iniciales.</remarks>
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateAppRequest request, CancellationToken ct)
     {
@@ -29,6 +32,7 @@ public class AppsController(IAppService appService) : BaseApiController
         return FromResult(result);
     }
 
+    /// <summary>Obtiene los detalles de una aplicación por su ID.</summary>
     [HttpGet("{appId}")]
     public async Task<IActionResult> Get(string appId, CancellationToken ct)
     {
@@ -37,6 +41,7 @@ public class AppsController(IAppService appService) : BaseApiController
         return Ok(MapToResponse(app));
     }
 
+    /// <summary>Desactiva una aplicación. Sus credenciales dejan de funcionar inmediatamente.</summary>
     [HttpDelete("{appId}")]
     public async Task<IActionResult> Deactivate(string appId, CancellationToken ct)
     {
@@ -50,6 +55,7 @@ public class AppsController(IAppService appService) : BaseApiController
 
     // ── Credentials ───────────────────────────────────────────────────────────
 
+    /// <summary>Lista las credenciales (API keys) de una aplicación. El `api_secret` nunca se devuelve aquí.</summary>
     [HttpGet("{appId}/credentials")]
     public async Task<IActionResult> ListCredentials(string appId, CancellationToken ct)
     {
@@ -70,6 +76,8 @@ public class AppsController(IAppService appService) : BaseApiController
         });
     }
 
+    /// <summary>Genera un nuevo par de credenciales (api_key + api_secret).</summary>
+    /// <remarks>⚠️ El `api_secret` se muestra UNA SOLA VEZ en la respuesta. Guárdalo inmediatamente.</remarks>
     [HttpPost("{appId}/credentials")]
     public async Task<IActionResult> CreateCredential(
         string appId,
@@ -93,6 +101,7 @@ public class AppsController(IAppService appService) : BaseApiController
         });
     }
 
+    /// <summary>Revoca una credencial. Las peticiones que usen esa API key fallarán con 401 inmediatamente.</summary>
     [HttpDelete("{appId}/credentials/{credentialId}")]
     public async Task<IActionResult> RevokeCredential(
         string appId, string credentialId, CancellationToken ct)
