@@ -1,9 +1,15 @@
-# GitVault
+<p align="center">
+  <img src="web/public/logo.png" alt="GitVault" width="320" />
+</p>
 
-**Smart file storage backed by your GitHub repositories.**
-_Almacenamiento de archivos inteligente respaldado por tus repositorios de GitHub._
+<p align="center">
+  <strong>Smart file storage backed by your GitHub repositories.</strong><br/>
+  <em>Almacenamiento de archivos inteligente respaldado por tus repositorios de GitHub.</em>
+</p>
 
-> Built by [Roberth Dudiver](https://dudiver.net)
+<p align="center">
+  Built by <a href="https://dudiver.net">Roberth Dudiver</a>
+</p>
 
 ---
 
