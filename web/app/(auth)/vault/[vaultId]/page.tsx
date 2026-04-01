@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useParams } from "next/navigation";
 import { useFiles, useUploadFile, useDeleteFile, useUpdateVisibility, type FileMetadata, getPublicUrl } from "@/hooks/useFiles";
+import { useVault } from "@/hooks/useVaults";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -23,6 +24,7 @@ function fileTypeLabel(contentType: string) {
 
 export default function VaultExplorerPage() {
   const { vaultId } = useParams<{ vaultId: string }>();
+  const { data: vault } = useVault(vaultId);
   const { data, isLoading, error } = useFiles(vaultId);
   const uploadFile = useUploadFile(vaultId);
   const deleteFile = useDeleteFile(vaultId);
@@ -81,7 +83,9 @@ export default function VaultExplorerPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold">Vault Explorer</h1>
+        <h1 className="text-xl font-semibold">
+          {vault?.repoFullName ?? "Vault Explorer"}
+        </h1>
         <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{vaultId}</p>
       </div>
 

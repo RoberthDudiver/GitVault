@@ -3,18 +3,31 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
+export interface VaultInfo {
+  vaultId: string;
+  repoFullName: string;
+  isPrivate: boolean;
+  isInitialized: boolean;
+}
+
 export function useVaults() {
   return useQuery({
     queryKey: ["vaults"],
     queryFn: async () => {
       const { data } = await api.get("/vaults");
-      return data.vaults as Array<{
-        vaultId: string;
-        repoFullName: string;
-        isPrivate: boolean;
-        isInitialized: boolean;
-      }>;
+      return data.vaults as VaultInfo[];
     },
+  });
+}
+
+export function useVault(vaultId: string) {
+  return useQuery({
+    queryKey: ["vaults", vaultId],
+    queryFn: async () => {
+      const { data } = await api.get(`/vaults/${vaultId}`);
+      return data as VaultInfo;
+    },
+    enabled: !!vaultId,
   });
 }
 

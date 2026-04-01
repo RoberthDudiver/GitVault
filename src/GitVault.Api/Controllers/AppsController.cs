@@ -64,14 +64,14 @@ public class AppsController(IAppService appService) : BaseApiController
         {
             credentials = creds.Select(c => new
             {
-                credential_id = c.CredentialId,
-                api_key = c.ApiKey,
+                credentialId = c.CredentialId,
+                apiKey = c.ApiKey,
                 description = c.Description,
-                is_active = c.IsActive,
-                created_at = c.CreatedAt,
-                expires_at = c.ExpiresAt,
-                last_used_at = c.LastUsedAt
-                // api_secret is NEVER returned here — it was shown only at creation
+                isActive = c.IsActive,
+                createdAt = c.CreatedAt,
+                expiresAt = c.ExpiresAt,
+                lastUsedAt = c.LastUsedAt
+                // apiSecret is NEVER returned here — it was shown only at creation
             })
         });
     }
@@ -92,11 +92,11 @@ public class AppsController(IAppService appService) : BaseApiController
         var created = result.Value!;
         return Ok(new
         {
-            credential_id = created.Credential.CredentialId,
-            api_key = created.Credential.ApiKey,
-            api_secret = created.PlainSecret,  // ← SHOWN ONLY ONCE. Never stored in plain text.
+            credentialId = created.Credential.CredentialId,
+            apiKey = created.Credential.ApiKey,
+            apiSecret = created.PlainSecret,  // ← SHOWN ONLY ONCE. Never stored in plain text.
             description = created.Credential.Description,
-            created_at = created.Credential.CreatedAt,
+            createdAt = created.Credential.CreatedAt,
             warning = "This secret will not be shown again. Store it securely."
         });
     }
@@ -116,14 +116,14 @@ public class AppsController(IAppService appService) : BaseApiController
 
     private static object MapToResponse(Core.Entities.AppClient a) => new
     {
-        app_id = a.AppId,
+        appId = a.AppId,
         name = a.Name,
         description = a.Description,
-        vault_ids = a.GetVaultIds(),
+        vaultIds = a.GetVaultIds(),
         scopes = a.GetScopes(),
-        is_active = a.IsActive,
-        created_at = a.CreatedAt,
-        last_used_at = a.LastUsedAt
+        isActive = a.IsActive,
+        createdAt = a.CreatedAt,
+        lastUsedAt = a.LastUsedAt
     };
 }
 
