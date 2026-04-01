@@ -14,6 +14,14 @@ namespace GitVault.Api.Controllers;
 [AllowAnonymous]
 public class ServingController(IServingService serving) : ControllerBase
 {
+    /// <summary>
+    /// Pretty URL: GET /f/{publicId}/{filename} — filename is decorative only,
+    /// the actual file is resolved by publicId. Allows URLs like /f/abc123/foto.jpg
+    /// </summary>
+    [HttpGet("{publicId}/{filename}")]
+    public Task<IActionResult> ServeFileWithName(string publicId, string filename, CancellationToken ct)
+        => ServeFile(publicId, ct);
+
     [HttpGet("{publicId}")]
     public async Task<IActionResult> ServeFile(string publicId, CancellationToken ct)
     {

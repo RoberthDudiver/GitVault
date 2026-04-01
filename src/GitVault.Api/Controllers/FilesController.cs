@@ -190,16 +190,16 @@ public class FilesController(
 
     private static object MapToResponse(FileMetadata f) => new
     {
-        logical_id = f.LogicalId,
-        public_id = f.PublicId,
+        logicalId = f.LogicalId,
+        publicId = f.PublicId,
         url = $"/f/{f.PublicId}",
-        original_name = f.OriginalName,
-        content_type = f.ContentType,
-        size_bytes = f.SizeBytes,
+        originalName = f.OriginalName,
+        contentType = f.ContentType,
+        sizeBytes = f.SizeBytes,
         visibility = f.Visibility.ToString().ToLower(),
-        folder_id = f.FolderId,
-        created_at = f.CreatedAt,
-        updated_at = f.UpdatedAt
+        folderId = f.FolderId,
+        createdAt = f.CreatedAt,
+        updatedAt = f.UpdatedAt
     };
 }
 

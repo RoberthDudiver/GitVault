@@ -19,5 +19,8 @@ api.interceptors.request.use(async (config) => {
 });
 
 // Serving base (no /v1 prefix, different rate limit policy)
-export const servingUrl = (publicId: string) =>
-  `${API_URL}/f/${publicId}`;
+// Optionally append filename for prettier URLs: /f/{publicId}/foto.jpg
+export const servingUrl = (publicId: string, filename?: string) =>
+  filename
+    ? `${API_URL}/f/${publicId}/${encodeURIComponent(filename)}`
+    : `${API_URL}/f/${publicId}`;

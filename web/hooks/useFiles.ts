@@ -73,6 +73,6 @@ export function useUpdateVisibility(vaultId: string) {
   });
 }
 
-export function getPublicUrl(publicId: string) {
-  return servingUrl(publicId);
+export function getPublicUrl(publicId: string, filename?: string) {
+  return servingUrl(publicId, filename);
 }
