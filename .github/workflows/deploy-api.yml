@@ -47,14 +47,17 @@ jobs:
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
+        env:
+          DEPLOY_SHA: ${{ github.sha }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
+          envs: DEPLOY_SHA
           script: |
             set -e
             cd /opt/docker-services
             docker compose -f docker-compose.gitvault.yml pull gitvault-api
             docker compose -f docker-compose.gitvault.yml up -d --no-deps gitvault-api
             docker image prune -f
-            echo "API deployed: ${{ github.sha }}"
+            echo "API deployed: $DEPLOY_SHA"
