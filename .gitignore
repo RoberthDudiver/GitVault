@@ -49,3 +49,4 @@ desktop.ini
 
 # ─── Docker ──────────────────────────────────────────────────────────────────
 docker-compose.override.yml
+gitvault-config.txt

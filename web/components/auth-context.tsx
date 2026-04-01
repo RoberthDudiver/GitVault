@@ -6,6 +6,9 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  signInWithPopup,
+  GoogleAuthProvider,
+  GithubAuthProvider,
   type User,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -19,6 +22,8 @@ interface AuthContextValue {
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithGitHub: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -57,6 +62,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signOut(auth);
   };
 
+  const signInWithGoogle = async () => {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+
+  const signInWithGitHub = async () => {
+    const provider = new GithubAuthProvider();
+    await signInWithPopup(auth, provider);
+  };
+
   const refreshUser = async () => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
@@ -71,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, githubConnected, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, githubConnected, login, register, logout, refreshUser, signInWithGoogle, signInWithGitHub }}>
       {children}
     </AuthContext.Provider>
   );
