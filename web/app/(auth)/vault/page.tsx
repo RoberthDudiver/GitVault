@@ -6,6 +6,7 @@ import type { AxiosError } from "axios";
 import { useVaults, useConnectVault, useAvailableRepos } from "@/hooks/useVaults";
 import { useAuth } from "@/components/auth-context";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 type ModalTab = "select" | "create";
 
@@ -14,6 +15,7 @@ export default function VaultListPage() {
   const { data: repos, refetch: fetchRepos, isFetching: fetchingRepos, isError: reposError } = useAvailableRepos();
   const connectVault = useConnectVault();
   const { githubConnected, refreshUser } = useAuth();
+  const { t } = useI18n();
 
   // GitHub connect state
   const [connectingGitHub, setConnectingGitHub] = useState(false);
@@ -96,7 +98,7 @@ export default function VaultListPage() {
     const name = newRepoName.trim();
     if (!name) return;
     if (!/^[a-zA-Z0-9._-]+$/.test(name)) {
-      setCreateError("Nombre inválido. Usa letras, números, guiones o puntos.");
+      setCreateError(t("vaults.invalidName"));
       return;
     }
     setCreateError("");
@@ -115,7 +117,7 @@ export default function VaultListPage() {
         setNeedsPat(true);
         setCreateError("");
       } else {
-        setCreateError(apiMsg ?? "Error al crear el repositorio.");
+        setCreateError(apiMsg ?? t("vaults.createError"));
       }
     } finally {
       setConnecting(null);
@@ -141,7 +143,7 @@ export default function VaultListPage() {
       handleClose();
     } catch (err: unknown) {
       const apiMsg = (err as AxiosError<{ message: string }>).response?.data?.message;
-      setCreateError(apiMsg ?? "Error al crear el repositorio con el token.");
+      setCreateError(apiMsg ?? t("vaults.createTokenError"));
       setNeedsPat(false);
     } finally {
       setPatSaving(false);
@@ -157,12 +159,12 @@ export default function VaultListPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">Vaults</h1>
+        <h1 className="text-xl font-semibold">{t("vaults.title")}</h1>
         <button
           onClick={handleOpen}
           className="rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300"
         >
-          + Agregar vault
+          {t("vaults.add")}
         </button>
       </div>
 
@@ -174,15 +176,15 @@ export default function VaultListPage() {
 
       {!isLoading && vaults?.length === 0 && (
         <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 py-20 text-center">
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">Aún no tienes vaults</p>
+          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">{t("vaults.empty")}</p>
           <p className="text-sm text-zinc-400 dark:text-zinc-500 mb-5">
-            Conecta un repo existente de GitHub o crea uno nuevo para empezar.
+            {t("vaults.emptyDesc")}
           </p>
           <button
             onClick={handleOpen}
             className="rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300"
           >
-            Agregar primer vault
+            {t("vaults.addFirst")}
           </button>
         </div>
       )}
@@ -201,9 +203,9 @@ export default function VaultListPage() {
                     {v.repoFullName}
                   </p>
                   <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                    {v.isPrivate ? "Privado" : "Público"}
+                    {v.isPrivate ? t("vaults.private") : t("vaults.public")}
                     {!v.isInitialized && (
-                      <span className="ml-2 text-amber-600 dark:text-amber-400">· inicializando…</span>
+                      <span className="ml-2 text-amber-600 dark:text-amber-400">{"\u00b7"} {t("vaults.initializing")}</span>
                     )}
                   </p>
                 </div>
@@ -212,7 +214,7 @@ export default function VaultListPage() {
                     ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
                     : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                 }`}>
-                  {v.isPrivate ? "privado" : "público"}
+                  {v.isPrivate ? t("vaults.private").toLowerCase() : t("vaults.public").toLowerCase()}
                 </span>
               </div>
             </Link>
@@ -220,13 +222,13 @@ export default function VaultListPage() {
         </div>
       )}
 
-      {/* ── Modal ─────────────────────────────────────────────────────────── */}
+      {/* -- Modal ----------------------------------------------------------- */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 shadow-xl">
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-5 pb-0">
-              <h2 className="font-semibold">Agregar vault</h2>
+              <h2 className="font-semibold">{t("vaults.addVault")}</h2>
               <button
                 onClick={handleClose}
                 className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 text-lg leading-none"
@@ -245,7 +247,7 @@ export default function VaultListPage() {
                     : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
                 }`}
               >
-                Usar repo existente
+                {t("vaults.useExisting")}
               </button>
               <button
                 onClick={() => handleTabChange("create")}
@@ -255,7 +257,7 @@ export default function VaultListPage() {
                     : "border-transparent text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
                 }`}
               >
-                Crear nuevo repo
+                {t("vaults.createNew")}
               </button>
             </div>
 
@@ -271,10 +273,10 @@ export default function VaultListPage() {
                       </svg>
                     </div>
                     <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                      GitHub no está conectado
+                      {t("vaults.ghNotConnected")}
                     </p>
                     <p className="text-xs text-zinc-400 dark:text-zinc-500 mb-4">
-                      Instala la GitHub App para ver tus repositorios.
+                      {t("vaults.ghInstallApp")}
                     </p>
                     <div className="flex flex-col gap-2">
                       <button
@@ -283,14 +285,14 @@ export default function VaultListPage() {
                         className="flex items-center justify-center gap-2 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-60"
                       >
                         {connectingGitHub && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-                        {connectingGitHub ? "Redirigiendo a GitHub…" : "Conectar GitHub"}
+                        {connectingGitHub ? t("vaults.redirecting") : t("vaults.connectGH")}
                       </button>
                       <button
                         onClick={handleRefreshGitHub}
                         disabled={refreshingGitHub}
                         className="text-xs text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors disabled:opacity-50"
                       >
-                        {refreshingGitHub ? "Verificando…" : "¿Ya instalado? Actualizar"}
+                        {refreshingGitHub ? t("onboarding.checking") : t("vaults.alreadyInstalled")}
                       </button>
                     </div>
                   </div>
@@ -304,17 +306,17 @@ export default function VaultListPage() {
 
                 {githubConnected && !fetchingRepos && reposError && (
                   <div className="py-6 text-center">
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">No se pudieron cargar los repositorios.</p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">{t("vaults.loadFailed")}</p>
                     <button onClick={() => fetchRepos()} className="text-xs text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors">
-                      Reintentar
+                      {t("vaults.retry")}
                     </button>
                   </div>
                 )}
 
                 {githubConnected && !fetchingRepos && !reposError && repos?.length === 0 && (
                   <div className="py-8 text-center">
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">No hay repositorios disponibles.</p>
-                    <p className="text-xs text-zinc-400 dark:text-zinc-500">Asegúrate de que la GitHub App tenga acceso a tus repos.</p>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">{t("vaults.noRepos")}</p>
+                    <p className="text-xs text-zinc-400 dark:text-zinc-500">{t("vaults.noReposDesc")}</p>
                   </div>
                 )}
 
@@ -327,7 +329,7 @@ export default function VaultListPage() {
                       </svg>
                       <input
                         type="text"
-                        placeholder="Buscar repositorio…"
+                        placeholder={t("vaults.searchRepo")}
                         value={repoSearch}
                         onChange={(e) => setRepoSearch(e.target.value)}
                         className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 pl-8 pr-3 py-1.5 text-sm outline-none focus:border-zinc-400 dark:focus:border-zinc-500"
@@ -344,15 +346,15 @@ export default function VaultListPage() {
 
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
                       {repoSearch
-                        ? `${filteredRepos?.length ?? 0} de ${repos.length} repositorios`
-                        : `${repos.length} repositorio${repos.length !== 1 ? "s" : ""} disponible${repos.length !== 1 ? "s" : ""}`
+                        ? `${filteredRepos?.length ?? 0} / ${repos.length}`
+                        : `${repos.length}`
                       }
                     </p>
 
                     <ul className="flex flex-col gap-0.5 max-h-64 overflow-y-auto -mx-1">
                       {filteredRepos?.length === 0 ? (
                         <li className="py-6 text-center text-sm text-zinc-400">
-                          Sin resultados para &ldquo;{repoSearch}&rdquo;
+                          {t("vaults.noResults")} &ldquo;{repoSearch}&rdquo;
                         </li>
                       ) : (
                         filteredRepos?.map((r) => {
@@ -373,10 +375,10 @@ export default function VaultListPage() {
                                   <div className="min-w-0">
                                     <p className="text-sm font-medium truncate">{r.fullName}</p>
                                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                      {r.isPrivate ? "Privado" : "Público"}
+                                      {r.isPrivate ? t("vaults.private") : t("vaults.public")}
                                     </p>
                                   </div>
-                                  {alreadyConnected && <span className="shrink-0 text-xs text-zinc-400">ya conectado</span>}
+                                  {alreadyConnected && <span className="shrink-0 text-xs text-zinc-400">{t("vaults.alreadyConnected")}</span>}
                                   {isConnecting && <div className="shrink-0 h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />}
                                 </div>
                               </button>
@@ -398,19 +400,19 @@ export default function VaultListPage() {
                   <form onSubmit={handleSavePatAndRetry} className="flex flex-col gap-3">
                     <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3">
                       <p className="text-xs font-medium text-amber-800 dark:text-amber-300 mb-0.5">
-                        La GitHub App no tiene permisos para crear repositorios
+                        {t("vaults.ghNoCreatePerm")}
                       </p>
                       <p className="text-xs text-amber-700 dark:text-amber-400">
-                        Ingresa un Personal Access Token con scope <code className="bg-amber-100 dark:bg-amber-900 px-1 rounded">repo</code>. Se guardará y reintentará automáticamente.
+                        {t("vaults.patPrompt")}
                       </p>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                        Personal Access Token
+                        {t("vaults.pat")}
                       </label>
                       <input
                         type="password"
-                        placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                        placeholder={t("vaults.patPlaceholder")}
                         value={patInput}
                         onChange={(e) => setPatInput(e.target.value)}
                         autoFocus
@@ -423,7 +425,7 @@ export default function VaultListPage() {
                           rel="noopener noreferrer"
                           className="underline hover:text-zinc-600"
                         >
-                          Crear token en GitHub ↗
+                          {t("vaults.createTokenGH")}
                         </a>
                       </p>
                     </div>
@@ -435,26 +437,26 @@ export default function VaultListPage() {
                         className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50 transition-colors"
                       >
                         {patSaving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-                        {patSaving ? "Guardando y creando…" : "Guardar token y crear repo"}
+                        {patSaving ? t("vaults.savingAndCreating") : t("vaults.saveAndCreate")}
                       </button>
                       <button
                         type="button"
                         onClick={() => { setNeedsPat(false); setCreateError(""); }}
                         className="px-3 py-2 text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
                       >
-                        Cancelar
+                        {t("vaults.cancel")}
                       </button>
                     </div>
                   </form>
                 ) : (
                   <form onSubmit={handleCreate} className="flex flex-col gap-4">
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      Se creará un nuevo repositorio en tu cuenta de GitHub y se inicializará como vault de GitVault.
+                      {t("vaults.willCreate")}
                     </p>
 
                     <div>
                       <label className="block text-sm font-medium mb-1.5" htmlFor="repo-name">
-                        Nombre del repositorio
+                        {t("vaults.repoName")}
                       </label>
                       <input
                         id="repo-name"
@@ -462,16 +464,16 @@ export default function VaultListPage() {
                         required
                         value={newRepoName}
                         onChange={(e) => { setNewRepoName(e.target.value); setCreateError(""); }}
-                        placeholder="mis-imagenes"
+                        placeholder={t("vaults.repoPlaceholder")}
                         className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 font-mono"
                       />
                       <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                        Solo letras, números, guiones y puntos. Sin espacios.
+                        {t("vaults.repoNameHint")}
                       </p>
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium mb-2">Visibilidad</p>
+                      <p className="text-sm font-medium mb-2">{t("vaults.visibility")}</p>
                       <div className="flex gap-3">
                         <label className={`flex-1 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
                           newRepoPrivate
@@ -483,8 +485,8 @@ export default function VaultListPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                           </svg>
                           <div>
-                            <p className="text-sm font-medium">Privado</p>
-                            <p className="text-xs text-zinc-500">Solo tú y tus apps</p>
+                            <p className="text-sm font-medium">{t("vaults.private")}</p>
+                            <p className="text-xs text-zinc-500">{t("vaults.privateDesc")}</p>
                           </div>
                         </label>
                         <label className={`flex-1 flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${
@@ -497,8 +499,8 @@ export default function VaultListPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
                           </svg>
                           <div>
-                            <p className="text-sm font-medium">Público</p>
-                            <p className="text-xs text-zinc-500">CDN directo, más rápido</p>
+                            <p className="text-sm font-medium">{t("vaults.public")}</p>
+                            <p className="text-xs text-zinc-500">{t("vaults.publicCDN")}</p>
                           </div>
                         </label>
                       </div>
@@ -514,9 +516,9 @@ export default function VaultListPage() {
                       {connecting ? (
                         <>
                           <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                          Creando…
+                          {t("vaults.creating")}
                         </>
-                      ) : "Crear repo y vault"}
+                      ) : t("vaults.createRepoVault")}
                     </button>
                   </form>
                 )}

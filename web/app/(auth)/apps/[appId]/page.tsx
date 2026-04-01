@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useApp, useDeleteApp, useCredentials, useCreateCredential, useRevokeCredential } from "@/hooks/useApps";
+import { useI18n } from "@/lib/i18n";
 
 export default function AppDetailPage() {
   const { appId } = useParams<{ appId: string }>();
   const router = useRouter();
+  const { t } = useI18n();
 
   const { data: app, isLoading } = useApp(appId);
   const { data: credentials } = useCredentials(appId);
@@ -35,7 +37,7 @@ export default function AppDetailPage() {
       const result = await createCredential.mutateAsync();
       setNewSecret(result);
     } catch {
-      setCredError("Failed to generate credential. Please try again.");
+      setCredError(t("app.generateFailed"));
     } finally {
       setGeneratingCred(false);
     }
@@ -61,7 +63,7 @@ export default function AppDetailPage() {
       await deleteApp.mutateAsync(appId);
       router.replace("/apps");
     } catch {
-      setDeleteError("Failed to delete the app. Please try again.");
+      setDeleteError(t("app.failed"));
       setDeletingApp(false);
     }
   };
@@ -74,19 +76,19 @@ export default function AppDetailPage() {
     );
   }
 
-  if (!app) return <p className="text-center py-12 text-sm text-zinc-500">App not found.</p>;
+  if (!app) return <p className="text-center py-12 text-sm text-zinc-500">{t("app.notFound")}</p>;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
 
-      {/* ── Delete app confirmation banner ───────────────────────────── */}
+      {/* -- Delete app confirmation banner --------------------------------- */}
       {confirmDelete ? (
         <div className="mb-6 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 p-4">
           <p className="text-sm font-medium text-red-800 dark:text-red-300 mb-1">
-            Delete &ldquo;{app.name}&rdquo;?
+            {t("app.deleteTitle", { name: app.name })}
           </p>
           <p className="text-xs text-red-700 dark:text-red-400 mb-3">
-            All credentials will be revoked immediately. This cannot be undone.
+            {t("app.deleteWarning")}
           </p>
           {deleteError && (
             <p className="text-xs text-red-600 dark:text-red-400 mb-2">{deleteError}</p>
@@ -100,14 +102,14 @@ export default function AppDetailPage() {
               {deletingApp && (
                 <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />
               )}
-              {deletingApp ? "Deleting…" : "Yes, delete app"}
+              {deletingApp ? t("app.deleting") : t("app.yesDelete")}
             </button>
             <button
               onClick={() => { setConfirmDelete(false); setDeleteError(""); }}
               disabled={deletingApp}
               className="rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
             >
-              Cancel
+              {t("app.cancel")}
             </button>
           </div>
         </div>
@@ -121,13 +123,13 @@ export default function AppDetailPage() {
             onClick={() => setConfirmDelete(true)}
             className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
           >
-            Delete app
+            {t("app.deleteApp")}
           </button>
         </div>
       )}
 
       <div className="mb-6">
-        <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Scopes</h2>
+        <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">{t("app.scopes")}</h2>
         <div className="flex flex-wrap gap-1.5">
           {app.scopes.map((s) => (
             <span key={s} className="text-sm px-2 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg">
@@ -139,7 +141,7 @@ export default function AppDetailPage() {
 
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">API Credentials</h2>
+          <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">{t("app.credentials")}</h2>
           <button
             onClick={handleGenerateCredential}
             disabled={generatingCred}
@@ -148,7 +150,7 @@ export default function AppDetailPage() {
             {generatingCred && (
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" />
             )}
-            {generatingCred ? "Generating…" : "Generate credential"}
+            {generatingCred ? t("app.generating") : t("app.generateCred")}
           </button>
         </div>
 
@@ -159,23 +161,23 @@ export default function AppDetailPage() {
         {newSecret && (
           <div className="mb-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-4">
             <p className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">
-              Save your secret now — it won&apos;t be shown again.
+              {t("app.saveSecret")}
             </p>
             <div className="flex flex-col gap-2">
               <div>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mb-0.5">API Key</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mb-0.5">{t("app.apiKey")}</p>
                 <code className="text-xs font-mono bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 px-2 py-1 rounded break-all">
                   {newSecret.apiKey}
                 </code>
               </div>
               <div>
-                <p className="text-xs text-amber-700 dark:text-amber-400 mb-0.5">API Secret</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mb-0.5">{t("app.apiSecret")}</p>
                 <code className="text-xs font-mono bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 px-2 py-1 rounded break-all">
                   {newSecret.apiSecret}
                 </code>
               </div>
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                Use as{" "}
+                {t("app.useAs")}{" "}
                 <code className="font-mono">Authorization: Basic base64({newSecret.apiKey}:{"<secret>"})</code>
               </p>
             </div>
@@ -183,14 +185,14 @@ export default function AppDetailPage() {
               onClick={() => setNewSecret(null)}
               className="mt-3 text-xs text-amber-700 dark:text-amber-400 underline"
             >
-              I&apos;ve saved it, dismiss
+              {t("app.savedDismiss")}
             </button>
           </div>
         )}
 
         {credentials && credentials.length === 0 && (
           <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 py-8 text-center">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">No credentials yet.</p>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">{t("app.noCreds")}</p>
           </div>
         )}
 
@@ -199,8 +201,8 @@ export default function AppDetailPage() {
             <table className="w-full text-sm">
               <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">API Key</th>
-                  <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">Created</th>
+                  <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">{t("app.apiKey")}</th>
+                  <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">{t("app.created")}</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -220,7 +222,7 @@ export default function AppDetailPage() {
                       <td className="px-4 py-3 text-right">
                         {isConfirming ? (
                           <div className="flex items-center justify-end gap-2">
-                            <span className="text-xs text-zinc-500 dark:text-zinc-400">Revoke this key?</span>
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400">{t("app.revokeConfirm")}</span>
                             <button
                               onClick={() => handleConfirmRevoke(cred.credentialId)}
                               disabled={isRevoking}
@@ -229,18 +231,18 @@ export default function AppDetailPage() {
                               {isRevoking && (
                                 <span className="h-3 w-3 animate-spin rounded-full border-2 border-red-300 border-t-red-600" />
                               )}
-                              {isRevoking ? "Revoking…" : "Yes, revoke"}
+                              {isRevoking ? t("app.revoking") : t("app.yesRevoke")}
                             </button>
                             {!isRevoking && (
                               <button
                                 onClick={() => { setConfirmRevokeId(null); setRevokeError(null); }}
                                 className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors"
                               >
-                                Cancel
+                                {t("app.cancel")}
                               </button>
                             )}
                             {revokeError === cred.credentialId && (
-                              <span className="text-xs text-red-500">Failed</span>
+                              <span className="text-xs text-red-500">{t("app.failed")}</span>
                             )}
                           </div>
                         ) : (
@@ -248,7 +250,7 @@ export default function AppDetailPage() {
                             onClick={() => setConfirmRevokeId(cred.credentialId)}
                             className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
                           >
-                            Revoke
+                            {t("app.revoke")}
                           </button>
                         )}
                       </td>

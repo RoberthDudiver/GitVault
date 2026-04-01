@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-context";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 export default function OnboardingPage() {
   const { user, loading, githubConnected, refreshUser } = useAuth();
   const router = useRouter();
+  const { t } = useI18n();
   const [installing, setInstalling] = useState(false);
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,7 @@ export default function OnboardingPage() {
       const { data } = await api.post("/auth/connect-github");
       window.location.href = data.installation_url as string;
     } catch {
-      setError("Could not start GitHub connection. Please try again.");
+      setError(t("onboarding.error"));
       setInstalling(false);
     }
   };
@@ -56,10 +58,9 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <h1 className="text-2xl font-semibold tracking-tight mb-2">Connect GitHub</h1>
+        <h1 className="text-2xl font-semibold tracking-tight mb-2">{t("onboarding.title")}</h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 max-w-sm mx-auto">
-          GitVault needs access to your GitHub repositories to use them as file storage backends.
-          Install the GitHub App to get started.
+          {t("onboarding.desc")}
         </p>
 
         {error && (
@@ -81,7 +82,7 @@ export default function OnboardingPage() {
                 <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
               </svg>
             )}
-            {installing ? "Redirecting to GitHub…" : "Install GitHub App"}
+            {installing ? t("onboarding.redirecting") : t("onboarding.installApp")}
           </button>
 
           <button
@@ -89,7 +90,7 @@ export default function OnboardingPage() {
             disabled={checking}
             className="text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors disabled:opacity-50"
           >
-            {checking ? "Checking…" : "Already installed? Refresh"}
+            {checking ? t("onboarding.checking") : t("onboarding.alreadyInstalled")}
           </button>
         </div>
       </div>

@@ -4,12 +4,14 @@ import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-context";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 function SelectRepoInner() {
   const { refreshUser } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const called = useRef(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     if (called.current) return;
@@ -45,10 +47,10 @@ function SelectRepoInner() {
           </svg>
         </div>
         <h1 className="mb-2 text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-          GitHub Connected!
+          {t("onboarding.connected")}
         </h1>
         <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
-          Redirecting to your vaults…
+          {t("onboarding.redirectingVaults")}
         </p>
         <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-800 dark:border-zinc-600 dark:border-t-zinc-200" />
       </div>

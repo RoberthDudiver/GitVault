@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useApps, useCreateApp } from "@/hooks/useApps";
 import { useVaults } from "@/hooks/useVaults";
+import { useI18n } from "@/lib/i18n";
 
 const ALL_SCOPES = ["files:read", "files:write", "files:delete"] as const;
 
@@ -11,6 +12,7 @@ export default function AppsPage() {
   const { data: apps, isLoading } = useApps();
   const { data: vaults } = useVaults();
   const createApp = useCreateApp();
+  const { t } = useI18n();
 
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState("");
@@ -43,7 +45,7 @@ export default function AppsPage() {
       setScopes(["files:read"]);
       setSelectedVaults([]);
     } catch {
-      setCreateError("Failed to create app. Please try again.");
+      setCreateError(t("apps.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -52,12 +54,12 @@ export default function AppsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">Apps</h1>
+        <h1 className="text-xl font-semibold">{t("apps.title")}</h1>
         <button
           onClick={() => setShowCreate(true)}
           className="rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300"
         >
-          New app
+          {t("apps.new")}
         </button>
       </div>
 
@@ -69,9 +71,9 @@ export default function AppsPage() {
 
       {!isLoading && apps?.length === 0 && (
         <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 py-16 text-center">
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">No apps yet.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">{t("apps.empty")}</p>
           <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
-            Create an app to get API credentials for programmatic access.
+            {t("apps.emptyDesc")}
           </p>
         </div>
       )}
@@ -91,7 +93,7 @@ export default function AppsPage() {
                     ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                     : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
                 }`}>
-                  {app.isActive ? "active" : "inactive"}
+                  {app.isActive ? t("apps.active") : t("apps.inactive")}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
@@ -110,7 +112,7 @@ export default function AppsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 shadow-xl p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-semibold">New app</h2>
+              <h2 className="font-semibold">{t("apps.newApp")}</h2>
               <button
                 onClick={() => setShowCreate(false)}
                 className="text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -121,19 +123,19 @@ export default function AppsPage() {
 
             <form onSubmit={handleCreate} className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">App name</label>
+                <label className="block text-sm font-medium mb-1.5">{t("apps.appName")}</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="My Integration"
+                  placeholder={t("apps.appNamePlaceholder")}
                   className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500"
                 />
               </div>
 
               <div>
-                <p className="text-sm font-medium mb-2">Scopes</p>
+                <p className="text-sm font-medium mb-2">{t("apps.scopes")}</p>
                 <div className="flex flex-col gap-2">
                   {ALL_SCOPES.map((scope) => (
                     <label key={scope} className="flex items-center gap-2 cursor-pointer">
@@ -151,9 +153,9 @@ export default function AppsPage() {
 
               {vaults && vaults.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium mb-1">Vault access</p>
+                  <p className="text-sm font-medium mb-1">{t("apps.vaultAccess")}</p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
-                    Leave all unchecked to grant access to all vaults.
+                    {t("apps.vaultAccessHint")}
                   </p>
                   <div className="flex flex-col gap-2 max-h-32 overflow-y-auto">
                     {vaults.map((v) => (
@@ -180,7 +182,7 @@ export default function AppsPage() {
                 disabled={creating || scopes.length === 0}
                 className="mt-1 flex items-center justify-center rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50"
               >
-                {creating ? "Creating…" : "Create app"}
+                {creating ? t("apps.creating") : t("apps.createApp")}
               </button>
             </form>
           </div>

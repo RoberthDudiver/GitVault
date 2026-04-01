@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/components/auth-context";
+import { useI18n } from "@/lib/i18n";
 
 const GITHUB_APP_NAME = process.env.NEXT_PUBLIC_GITHUB_APP_NAME ?? "gitvault";
 
 export default function SettingsPage() {
   const { githubConnected, refreshUser } = useAuth();
+  const { t } = useI18n();
 
   // PAT state
   const [hasToken, setHasToken] = useState<boolean | null>(null);
@@ -49,9 +51,9 @@ export default function SettingsPage() {
       await api.put("/settings/github-token", { token: tokenInput.trim() });
       setHasToken(true);
       setTokenInput("");
-      setMessage({ type: "ok", text: "Token guardado correctamente." });
+      setMessage({ type: "ok", text: t("settings.tokenSaved") });
     } catch {
-      setMessage({ type: "err", text: "No se pudo guardar el token." });
+      setMessage({ type: "err", text: t("settings.tokenSaveFailed") });
     } finally {
       setSaving(false);
     }
@@ -63,9 +65,9 @@ export default function SettingsPage() {
     try {
       await api.delete("/settings/github-token");
       setHasToken(false);
-      setMessage({ type: "ok", text: "Token eliminado." });
+      setMessage({ type: "ok", text: t("settings.tokenRemoved") });
     } catch {
-      setMessage({ type: "err", text: "No se pudo eliminar el token." });
+      setMessage({ type: "err", text: t("settings.tokenRemoveFailed") });
     } finally {
       setRemoving(false);
     }
@@ -73,9 +75,9 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-xl font-semibold mb-8">Ajustes</h1>
+      <h1 className="text-xl font-semibold mb-8">{t("settings.title")}</h1>
 
-      {/* ── GitHub App connection ─────────────────────────────────────── */}
+      {/* -- GitHub App connection ------------------------------------------ */}
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 mb-4">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-center gap-3">
@@ -85,9 +87,9 @@ export default function SettingsPage() {
               </svg>
             </div>
             <div>
-              <h2 className="text-sm font-semibold">Conexión de GitHub</h2>
+              <h2 className="text-sm font-semibold">{t("settings.ghConnection")}</h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                GitHub App instalada en tu cuenta para gestionar repositorios.
+                {t("settings.ghConnectionDesc")}
               </p>
             </div>
           </div>
@@ -96,7 +98,7 @@ export default function SettingsPage() {
               ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
               : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
           }`}>
-            {githubConnected ? "Conectado" : "No conectado"}
+            {githubConnected ? t("settings.connected") : t("settings.notConnected")}
           </span>
         </div>
 
@@ -112,7 +114,7 @@ export default function SettingsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            Administrar conexión de GitHub
+            {t("settings.manageGH")}
           </a>
 
           {/* Reconnect / refresh */}
@@ -123,7 +125,7 @@ export default function SettingsPage() {
               className="flex items-center gap-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 px-3 py-2 text-xs font-medium text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50 transition-colors"
             >
               {connectingGitHub && <div className="h-3 w-3 animate-spin rounded-full border border-white/40 border-t-white" />}
-              {connectingGitHub ? "Redirigiendo…" : "Conectar GitHub App"}
+              {connectingGitHub ? t("settings.redirecting") : t("settings.connectGHApp")}
             </button>
           ) : (
             <button
@@ -131,21 +133,19 @@ export default function SettingsPage() {
               disabled={refreshingGitHub}
               className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
             >
-              {refreshingGitHub ? "Actualizando…" : "Actualizar estado"}
+              {refreshingGitHub ? t("settings.refreshing") : t("settings.refreshStatus")}
             </button>
           )}
         </div>
       </div>
 
-      {/* ── GitHub Personal Access Token ──────────────────────────────── */}
+      {/* -- GitHub Personal Access Token ----------------------------------- */}
       <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <h2 className="text-sm font-semibold mb-1">Personal Access Token</h2>
+            <h2 className="text-sm font-semibold mb-1">{t("settings.pat")}</h2>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Alternativa cuando la GitHub App no puede crear repositorios.
-              Se usa automáticamente si la App falla. Necesita scope{" "}
-              <code className="bg-zinc-100 dark:bg-zinc-800 px-1 rounded">repo</code>.
+              {t("settings.patDesc")}
             </p>
           </div>
           <span className={`shrink-0 text-xs px-2.5 py-1 rounded-full font-medium ${
@@ -155,18 +155,18 @@ export default function SettingsPage() {
               ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
               : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
           }`}>
-            {hasToken === null ? "…" : hasToken ? "Configurado" : "No configurado"}
+            {hasToken === null ? "\u2026" : hasToken ? t("settings.configured") : t("settings.notConfigured")}
           </span>
         </div>
 
         {/* Instructions */}
         <div className="mb-4 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-3 text-xs text-zinc-500 dark:text-zinc-400 space-y-1">
-          <p className="font-medium text-zinc-700 dark:text-zinc-300">Cómo crear el token:</p>
+          <p className="font-medium text-zinc-700 dark:text-zinc-300">{t("settings.howToCreate")}</p>
           <ol className="list-decimal list-inside space-y-0.5">
-            <li>Ve a <span className="font-mono">github.com → Settings → Developer settings → Personal access tokens</span></li>
-            <li>Click <span className="font-medium">Generate new token (classic)</span></li>
-            <li>Selecciona el scope <span className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 rounded">repo</span></li>
-            <li>Copia el token y pégalo aquí</li>
+            <li>{t("settings.step1")}</li>
+            <li>{t("settings.step2")}</li>
+            <li>{t("settings.step3")}</li>
+            <li>{t("settings.step4")}</li>
           </ol>
           <a
             href={`https://github.com/settings/tokens/new?scopes=repo&description=GitVault`}
@@ -174,14 +174,14 @@ export default function SettingsPage() {
             rel="noopener noreferrer"
             className="inline-block mt-1 text-zinc-600 dark:text-zinc-300 underline hover:text-zinc-900 dark:hover:text-zinc-100"
           >
-            Crear token en GitHub ↗
+            {t("settings.createTokenGH")}
           </a>
         </div>
 
         <form onSubmit={handleSaveToken} className="flex gap-2">
           <input
             type="password"
-            placeholder={hasToken ? "Reemplazar token actual…" : "ghp_xxxxxxxxxxxx"}
+            placeholder={hasToken ? t("settings.replaceToken") : "ghp_xxxxxxxxxxxx"}
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
             className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-zinc-500 font-mono"
@@ -191,7 +191,7 @@ export default function SettingsPage() {
             disabled={saving || !tokenInput.trim()}
             className="rounded-lg bg-zinc-900 dark:bg-zinc-100 px-4 py-2 text-sm font-medium text-white dark:text-zinc-900 hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50 transition-colors"
           >
-            {saving ? "Guardando…" : "Guardar"}
+            {saving ? t("settings.saving") : t("settings.save")}
           </button>
           {hasToken && (
             <button
@@ -200,7 +200,7 @@ export default function SettingsPage() {
               disabled={removing}
               className="rounded-lg border border-red-200 dark:border-red-900 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 disabled:opacity-50 transition-colors"
             >
-              {removing ? "…" : "Eliminar"}
+              {removing ? "\u2026" : t("settings.remove")}
             </button>
           )}
         </form>

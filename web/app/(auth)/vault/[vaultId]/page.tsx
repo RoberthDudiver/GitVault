@@ -136,6 +136,7 @@ function PreviewModal({
   onToggleVisibility: (file: FileMetadata) => Promise<void>;
 }) {
   const { url, loading } = useAuthFileUrl(file);
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -197,7 +198,7 @@ function PreviewModal({
               ? "bg-green-500/20 text-green-300"
               : "bg-zinc-500/20 text-zinc-300"
           }`}>
-            {file.visibility}
+            {file.visibility === "public" ? t("vault.public").toLowerCase() : t("vault.private").toLowerCase()}
           </span>
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-3">
@@ -206,27 +207,27 @@ function PreviewModal({
             disabled={toggling}
             className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 disabled:opacity-50 transition-colors"
           >
-            {toggling ? "…" : file.visibility === "public" ? "Make private" : "Make public"}
+            {toggling ? "\u2026" : file.visibility === "public" ? t("file.makePrivate") : t("file.makePublic")}
           </button>
           <button
             onClick={handleCopy}
             className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors"
           >
-            {copied ? "Copied!" : "Copy URL"}
+            {copied ? t("file.copied") : t("file.copyUrl")}
           </button>
           <a
             href={url ?? "#"}
             download={file.originalName}
             className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors"
           >
-            Download
+            {t("file.download")}
           </a>
           {!confirmDelete ? (
             <button
               onClick={() => setConfirmDelete(true)}
               className="text-xs px-2 py-1 rounded bg-red-500/20 hover:bg-red-500/40 text-red-300 transition-colors"
             >
-              Delete
+              {t("file.delete")}
             </button>
           ) : (
             <div className="flex items-center gap-1">
@@ -236,13 +237,13 @@ function PreviewModal({
                 className="text-xs px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 transition-colors flex items-center gap-1"
               >
                 {deleting && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/40 border-t-white" />}
-                {deleting ? "Deleting…" : "Confirm"}
+                {deleting ? t("file.deleting") : t("file.confirm")}
               </button>
               <button
                 onClick={() => setConfirmDelete(false)}
                 className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors"
               >
-                Cancel
+                {t("file.cancel")}
               </button>
             </div>
           )}
@@ -266,7 +267,7 @@ function PreviewModal({
         {loading && (
           <div className="flex flex-col items-center gap-3 text-white/60">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white/80" />
-            <span className="text-sm">Loading…</span>
+            <span className="text-sm">{t("file.loading")}</span>
           </div>
         )}
 
@@ -318,7 +319,7 @@ function PreviewModal({
               download={file.originalName}
               className="mt-2 rounded-lg bg-white text-zinc-900 px-5 py-2 text-sm font-medium hover:bg-zinc-100 transition-colors"
             >
-              Download file
+              {t("file.downloadFile")}
             </a>
           </div>
         )}
@@ -328,7 +329,7 @@ function PreviewModal({
             <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
-            <p className="text-sm">Unable to load file preview</p>
+            <p className="text-sm">{t("file.noPreview")}</p>
           </div>
         )}
 
@@ -458,7 +459,7 @@ function GalleryCard({
               title={t("file.copyUrl")}
               className="flex-1 text-center text-xs py-1 rounded-md bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
-              {copiedId === file.logicalId ? "✓" : "Copy"}
+              {copiedId === file.logicalId ? "\u2713" : t("file.copy")}
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onConfirmDelete(true); }}
@@ -520,7 +521,7 @@ export default function VaultExplorerPage() {
           await uploadFile.mutateAsync({ file, visibility: uploadVisibility });
         }
       } catch {
-        setUploadError("Upload failed. Please try again.");
+        setUploadError(t("vault.uploadFailed"));
       } finally {
         setUploading(false);
       }
@@ -587,7 +588,7 @@ export default function VaultExplorerPage() {
         <div className="flex rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden shrink-0">
           <button
             onClick={() => setViewMode("gallery")}
-            title="Gallery view"
+            title={t("vault.galleryView")}
             className={`px-2.5 py-1.5 transition-colors ${viewMode === "gallery" ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-white dark:bg-zinc-900 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -596,7 +597,7 @@ export default function VaultExplorerPage() {
           </button>
           <button
             onClick={() => setViewMode("table")}
-            title="Table view"
+            title={t("vault.tableView")}
             className={`px-2.5 py-1.5 border-l border-zinc-200 dark:border-zinc-700 transition-colors ${viewMode === "table" ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900" : "bg-white dark:bg-zinc-900 text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-800"}`}
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -702,10 +703,10 @@ export default function VaultExplorerPage() {
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">Type</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden md:table-cell">Size</th>
-                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">Visibility</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">{t("table.name")}</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">{t("table.type")}</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden md:table-cell">{t("table.size")}</th>
+                <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">{t("table.visibility")}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -738,34 +739,34 @@ export default function VaultExplorerPage() {
                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200"
                         }`}
                       >
-                        {isToggling ? "…" : file.visibility === "public" ? "public" : "private"}
+                        {isToggling ? "\u2026" : file.visibility === "public" ? t("vault.public").toLowerCase() : t("vault.private").toLowerCase()}
                       </button>
-                      {toggleError === file.logicalId && <span className="ml-1 text-xs text-red-500">Failed</span>}
+                      {toggleError === file.logicalId && <span className="ml-1 text-xs text-red-500">{t("file.failed")}</span>}
                     </td>
                     <td className="px-4 py-3">
                       {isConfirming ? (
                         <div className="flex items-center justify-end gap-2">
-                          <span className="text-xs text-zinc-500">Delete?</span>
+                          <span className="text-xs text-zinc-500">{t("table.deleteQ")}</span>
                           <button onClick={() => handleConfirmDelete(file.logicalId)} disabled={isDeleting}
                             className="text-xs font-medium text-red-600 hover:text-red-800 dark:text-red-400 disabled:opacity-50 flex items-center gap-1">
                             {isDeleting && <span className="h-3 w-3 animate-spin rounded-full border-2 border-red-300 border-t-red-600" />}
-                            {isDeleting ? "Deleting…" : "Yes"}
+                            {isDeleting ? t("file.deleting") : t("table.yes")}
                           </button>
                           {!isDeleting && (
-                            <button onClick={() => setConfirmDeleteId(null)} className="text-xs text-zinc-400 hover:text-zinc-600">No</button>
+                            <button onClick={() => setConfirmDeleteId(null)} className="text-xs text-zinc-400 hover:text-zinc-600">{t("table.no")}</button>
                           )}
-                          {deleteError === file.logicalId && <span className="text-xs text-red-500">Failed</span>}
+                          {deleteError === file.logicalId && <span className="text-xs text-red-500">{t("file.failed")}</span>}
                         </div>
                       ) : (
                         <div className="flex items-center justify-end gap-3">
                           <button onClick={() => handleCopy(file)} className="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors">
-                            {copiedId === file.logicalId ? "Copied!" : "Copy URL"}
+                            {copiedId === file.logicalId ? t("file.copied") : t("file.copyUrl")}
                           </button>
                           <button onClick={() => setPreviewFile(file)} className="text-xs text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors">
-                            Preview
+                            {t("file.preview")}
                           </button>
                           <button onClick={() => setConfirmDeleteId(file.logicalId)} className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 transition-colors">
-                            Delete
+                            {t("file.delete")}
                           </button>
                         </div>
                       )}
