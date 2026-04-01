@@ -1,0 +1,163 @@
+"use client";
+
+import { useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useApp, useDeleteApp, useCredentials, useCreateCredential, useRevokeCredential } from "@/hooks/useApps";
+
+export default function AppDetailPage() {
+  const { appId } = useParams<{ appId: string }>();
+  const router = useRouter();
+
+  const { data: app, isLoading } = useApp(appId);
+  const { data: credentials } = useCredentials(appId);
+  const deleteApp = useDeleteApp();
+  const createCredential = useCreateCredential(appId);
+  const revokeCredential = useRevokeCredential(appId);
+
+  const [newSecret, setNewSecret] = useState<{ apiKey: string; apiSecret: string } | null>(null);
+  const [generatingCred, setGeneratingCred] = useState(false);
+
+  const handleGenerateCredential = async () => {
+    setGeneratingCred(true);
+    try {
+      const result = await createCredential.mutateAsync();
+      setNewSecret(result);
+    } finally {
+      setGeneratingCred(false);
+    }
+  };
+
+  const handleRevoke = (credentialId: string) => {
+    if (!confirm("Revoke this credential? Apps using it will lose access immediately.")) return;
+    revokeCredential.mutate(credentialId);
+  };
+
+  const handleDeleteApp = async () => {
+    if (!confirm(`Delete app "${app?.name}"? All credentials will be revoked.`)) return;
+    await deleteApp.mutateAsync(appId);
+    router.replace("/apps");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-800" />
+      </div>
+    );
+  }
+
+  if (!app) return <p className="text-center py-12 text-sm text-zinc-500">App not found.</p>;
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-xl font-semibold">{app.name}</h1>
+          <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{app.appId}</p>
+        </div>
+        <button
+          onClick={handleDeleteApp}
+          className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+        >
+          Delete app
+        </button>
+      </div>
+
+      <div className="mb-6">
+        <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-3">Scopes</h2>
+        <div className="flex flex-wrap gap-1.5">
+          {app.scopes.map((s) => (
+            <span key={s} className="text-sm px-2 py-1 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg">
+              {s}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">API Credentials</h2>
+          <button
+            onClick={handleGenerateCredential}
+            disabled={generatingCred}
+            className="rounded-lg bg-zinc-900 dark:bg-zinc-100 px-3 py-1.5 text-sm font-medium text-white dark:text-zinc-900 transition-colors hover:bg-zinc-700 dark:hover:bg-zinc-300 disabled:opacity-50"
+          >
+            {generatingCred ? "Generating…" : "Generate credential"}
+          </button>
+        </div>
+
+        {newSecret && (
+          <div className="mb-4 rounded-xl border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-4">
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300 mb-2">
+              Save your secret now — it won&apos;t be shown again.
+            </p>
+            <div className="flex flex-col gap-2">
+              <div>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mb-0.5">API Key</p>
+                <code className="text-xs font-mono bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 px-2 py-1 rounded break-all">
+                  {newSecret.apiKey}
+                </code>
+              </div>
+              <div>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mb-0.5">API Secret</p>
+                <code className="text-xs font-mono bg-amber-100 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 px-2 py-1 rounded break-all">
+                  {newSecret.apiSecret}
+                </code>
+              </div>
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Use as{" "}
+                <code className="font-mono">Authorization: Basic base64({newSecret.apiKey}:{"<secret>"})</code>
+              </p>
+            </div>
+            <button
+              onClick={() => setNewSecret(null)}
+              className="mt-3 text-xs text-amber-700 dark:text-amber-400 underline"
+            >
+              I&apos;ve saved it, dismiss
+            </button>
+          </div>
+        )}
+
+        {credentials && credentials.length === 0 && (
+          <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 py-8 text-center">
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">No credentials yet.</p>
+          </div>
+        )}
+
+        {credentials && credentials.length > 0 && (
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+                <tr>
+                  <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400">API Key</th>
+                  <th className="text-left px-4 py-3 font-medium text-zinc-500 dark:text-zinc-400 hidden sm:table-cell">Created</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {credentials.map((cred) => (
+                  <tr key={cred.credentialId} className="bg-white dark:bg-zinc-950">
+                    <td className="px-4 py-3">
+                      <code className="font-mono text-xs">{cred.apiKey}</code>
+                    </td>
+                    <td className="px-4 py-3 text-zinc-500 dark:text-zinc-400 text-xs hidden sm:table-cell">
+                      {new Date(cred.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => handleRevoke(cred.credentialId)}
+                        className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                      >
+                        Revoke
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
