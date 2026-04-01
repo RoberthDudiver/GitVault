@@ -47,6 +47,13 @@ secret.txt
 Thumbs.db
 desktop.ini
 
+# ─── Local dev / private notes ───────────────────────────────────────────────
+server-credentials.txt
+server-setup-guide.md
+.claude/
+
 # ─── Docker ──────────────────────────────────────────────────────────────────
 docker-compose.override.yml
 gitvault-config.txt
+# Server-specific production config — use infra/docker-compose.prod.example.yml as template
+infra/docker-compose.gitvault.yml

@@ -1,6 +1,11 @@
-# GitVault — Production Stack
-# Copiar a /opt/docker-services/docker-compose.gitvault.yml en el servidor
-# Deploy: cd /opt/docker-services && docker compose -f docker-compose.gitvault.yml up -d
+# GitVault — Production Stack (example)
+# Copy and adapt this file for your server.
+# Replace all placeholder values with your own.
+#
+# Usage:
+#   1. Copy to your server (e.g. /opt/docker-services/docker-compose.gitvault.yml)
+#   2. Create .env with your secrets (see ../../.env.example)
+#   3. docker compose -f docker-compose.gitvault.yml up -d
 
 services:
 
@@ -15,7 +20,7 @@ services:
       - app-network
 
   gitvault-api:
-    image: ghcr.io/roberthdudiver/gitvault-api:latest
+    image: ghcr.io/YOUR_GITHUB_USERNAME/gitvault-api:latest
     container_name: gitvault-api
     restart: unless-stopped
     env_file:
@@ -25,8 +30,8 @@ services:
       ASPNETCORE_URLS: http://+:5000
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       SQLITE_PATH: /app/data/gitvault.db
-      FRONTEND_URL: https://gitvault.dudiver.net
-      GITHUB_APP_NAME: roberthdudiver-gitvault
+      FRONTEND_URL: https://yourdomain.com
+      GITHUB_APP_NAME: your-github-app-name
       GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/github-app-private-key.pem
       FIREBASE_CREDENTIAL_PATH: /run/secrets/firebase-adminsdk.json
       Redis__ConnectionString: gitvault-redis:6379
@@ -46,7 +51,7 @@ services:
       - app-network
 
   gitvault-web:
-    image: ghcr.io/roberthdudiver/gitvault-web:latest
+    image: ghcr.io/YOUR_GITHUB_USERNAME/gitvault-web:latest
     container_name: gitvault-web
     restart: unless-stopped
     environment:
