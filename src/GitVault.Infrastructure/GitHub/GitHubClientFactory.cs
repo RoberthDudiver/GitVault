@@ -14,7 +14,8 @@ public class GitHubClientFactory(
     ICacheService cache,
     ILogger<GitHubClientFactory> logger)
 {
-    private const string ProductHeader = "GitVault/1.0";
+    private const string ProductName = "GitVault";
+    private const string ProductVersion = "1.0";
 
     /// <summary>
     /// Returns an Octokit client authenticated for the given installation.
@@ -34,7 +35,7 @@ public class GitHubClientFactory(
         logger.LogDebug("Requesting new installation token for installation {InstallationId}", installationId);
 
         var appJwt = authenticator.CreateAppJwt();
-        var appClient = new GitHubClient(new ProductHeaderValue(ProductHeader))
+        var appClient = new GitHubClient(new ProductHeaderValue(ProductName, ProductVersion))
         {
             Credentials = new Credentials(appJwt, AuthenticationType.Bearer)
         };
@@ -60,14 +61,14 @@ public class GitHubClientFactory(
     public GitHubClient GetAppClient()
     {
         var jwt = authenticator.CreateAppJwt();
-        return new GitHubClient(new ProductHeaderValue(ProductHeader))
+        return new GitHubClient(new ProductHeaderValue(ProductName, ProductVersion))
         {
             Credentials = new Credentials(jwt, AuthenticationType.Bearer)
         };
     }
 
     private static GitHubClient CreateClient(string token) =>
-        new(new ProductHeaderValue(ProductHeader))
+        new(new ProductHeaderValue(ProductName, ProductVersion))
         {
             Credentials = new Credentials(token)
         };
