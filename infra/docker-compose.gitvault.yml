@@ -1,0 +1,67 @@
+# GitVault — Production Stack
+# Copiar a /opt/docker-services/docker-compose.gitvault.yml en el servidor
+# Deploy: cd /opt/docker-services && docker compose -f docker-compose.gitvault.yml up -d
+
+services:
+
+  gitvault-redis:
+    image: redis:7-alpine
+    container_name: gitvault-redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - gitvault_redis_data:/data
+    networks:
+      - app-network
+
+  gitvault-api:
+    image: ghcr.io/roberthdudiver/gitvault-api:latest
+    container_name: gitvault-api
+    restart: unless-stopped
+    env_file:
+      - ./gitvault/.env
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:5000
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      SQLITE_PATH: /app/data/gitvault.db
+      FRONTEND_URL: https://gitvault.dudiver.net
+      GITHUB_APP_NAME: roberthdudiver-gitvault
+      GITHUB_APP_PRIVATE_KEY_PATH: /run/secrets/github-app-private-key.pem
+      FIREBASE_CREDENTIAL_PATH: /run/secrets/firebase-adminsdk.json
+      Redis__ConnectionString: gitvault-redis:6379
+      Redis__InstanceName: "gitvault:"
+    volumes:
+      - gitvault_sqlite:/app/data
+      - ./gitvault/.secrets:/run/secrets:ro
+    depends_on:
+      - gitvault-redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - app-network
+
+  gitvault-web:
+    image: ghcr.io/roberthdudiver/gitvault-web:latest
+    container_name: gitvault-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      gitvault-api:
+        condition: service_healthy
+    networks:
+      - app-network
+
+volumes:
+  gitvault_sqlite:
+  gitvault_redis_data:
+
+networks:
+  app-network:
+    external: true

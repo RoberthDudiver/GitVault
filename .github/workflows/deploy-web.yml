@@ -53,15 +53,19 @@ jobs:
         uses: appleboy/ssh-action@v1
         env:
           DEPLOY_SHA: ${{ github.sha }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
-          envs: DEPLOY_SHA
+          envs: DEPLOY_SHA,GHCR_TOKEN,GHCR_USER
           script: |
             set -e
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             cd /opt/docker-services
             docker compose -f docker-compose.gitvault.yml pull gitvault-web
             docker compose -f docker-compose.gitvault.yml up -d --no-deps gitvault-web
+            docker logout ghcr.io
             docker image prune -f
             echo "Web deployed: $DEPLOY_SHA"
